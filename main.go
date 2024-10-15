@@ -1,9 +1,10 @@
 package main
 
 import (
+	"autofat/elevio"
+	"autofat/events"
 	"autofat/fatelevator"
 	"autofat/tmux"
-	"autofat/events"
 	"fmt"
 	"net/netip"
 	"os/exec"
@@ -48,8 +49,11 @@ func main() {
 	tmux.Launch()
 
 	var simulatedElevators []fatelevator.SimulatedElevator
+	var elevios []elevio.ElevIO
+
 	for i := 0; i < N_ELEVATORS; i++ {
-		simulatedElevator := fatelevator.MakeElevatorInstance(
+		var simulatedElevator fatelevator.SimulatedElevator
+		simulatedElevator.Init(
 			USERPROGRAM_PORTS[i],
 			FATPROGRAM_PORTS[i],
 			tmux.GetTTYFromPane(i+1),
@@ -57,8 +61,9 @@ func main() {
 		)
 
 		simulatedElevators = append(simulatedElevators, simulatedElevator)
-		go fatelevator.RunSimulator(simulatedElevators[i])
+		elevios = append(elevios, elevio.ElevIO{})
 
+		fatelevator.RunSimulator(&elevios[i], simulatedElevators[i])
 	}
 
 	time.Sleep(500 * time.Millisecond)
@@ -68,18 +73,28 @@ func main() {
 			UserAddrPort: netip.AddrPortFrom(netip.AddrFrom4(LOCALHOST), USERPROGRAM_PORTS[i]),
 			FatAddrPort:  netip.AddrPortFrom(netip.AddrFrom4(LOCALHOST), FATPROGRAM_PORTS[i]),
 		})
-
 		go userProcess(elevators[i].UserAddrPort.Port(), i)
 
-		if i == 0 {
-			event := events.Event {
-				WaitFor:  0 * time.Second,
-				ExpectedFloors: []uint8{2},	
-			}
-			ch_Done := make(chan int)
-			go events.EventListener(simulatedElevators, event, ch_Done)
-		}
 	}
+
+	time.Sleep(1000 * time.Millisecond)
+
+	var eventList = []events.Event{
+		events.Event{
+			ID:          "init",
+			Description: "Initial event",
+			TriggerType: events.TRIGGER_INIT,
+			ActionType:  events.ACTION_MAKE_ORDER,
+			ActionParams: events.Button{
+				Elevator: 0,
+				ButtonEvent: elevio.ButtonEvent{
+					Button: elevio.BT_Cab,
+					Floor:  3,
+				},
+			},
+		},
+	}
+	go events.EventListener(simulatedElevators, eventList)
 
 	//FIXME
 	time.Sleep(10000000 * time.Second)
