@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const LAUNCH_SIMLATOR string = "/home/mikkel/dev/prosjekt/autofat/SimElevatorServer"
+const LAUNCH_SIMLATOR string = "/home/mikkelbergstrand/dev/prosjekt/autofat/SimElevatorServer"
 
 type SimulatedElevator struct {
 	Tty          string
@@ -62,10 +62,8 @@ func RunSimulator(io *elevio.ElevIO, elevator SimulatedElevator) {
 	go io.PollFloorSensor(elevator.Chan_FloorSensor)
 
 	go func() {
-		fmt.Println("...")
 		for {
 			new_button_press := <-elevator.Chan_ButtonPresser
-			fmt.Println("Holy shit! We just pressed some buttons!")
 			io.PressButton(new_button_press.Button, new_button_press.Floor)
 		}
 	}()
