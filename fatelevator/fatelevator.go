@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const LAUNCH_SIMLATOR string = "/home/mikkelbergstrand/dev/prosjekt/autofat/SimElevatorServer"
+const LAUNCH_SIMLATOR string = "./SimElevatorServer"
 
 type SimulatedElevator struct {
 	Tty          string
