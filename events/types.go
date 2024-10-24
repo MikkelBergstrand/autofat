@@ -38,27 +38,26 @@ func (b Button) Equals(other Button) bool {
 }
 
 type Event struct {
-	ID 			string
+	ID          string
 	Description string
-	RepeatCount	byte	
+	RepeatCount byte
 
-	TriggerType		byte
-	TriggerParams	interface{}
+	TriggerType   byte
+	TriggerParams interface{}
 
-	ActionType		byte
+	ActionType byte
 
-	ActionParams	interface{}
+	ActionParams interface{}
 
 	//Time (in milliseconds) from event is loaded to a timeout is triggered.
-	TimeoutMillisec int 
+	TimeoutMillisec int
 
-
-	LoadOnTrigger	[]*Event
-	LoadOnRepeat	[]*Event
-	LoadOnFailure 	[]*Event
+	LoadOnTrigger []string
+	LoadOnRepeat  []string
+	LoadOnFailure []string
 }
 
 type EventTriggerParams struct {
-	Event *Event	
-	Milliseconds int 
+	Event        *Event
+	Milliseconds int
 }
