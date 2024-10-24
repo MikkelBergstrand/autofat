@@ -5,6 +5,7 @@ import (
 	"autofat/events"
 	"autofat/fatelevator"
 	"autofat/tmux"
+	"autofat/tests"
 	"fmt"
 	"net/netip"
 	"os/exec"
@@ -37,7 +38,8 @@ func userProcess(userPort uint16, id int) {
 }
 
 func main() {
-	N_ELEVATORS := 1
+	test := tests.TestFloorLamp()
+
 	USERPROGRAM_PORTS := [3]uint16{12345, 12346, 12347}
 	FATPROGRAM_PORTS := [3]uint16{12348, 12349, 12350}
 
@@ -51,13 +53,13 @@ func main() {
 	var simulatedElevators []fatelevator.SimulatedElevator
 	var elevios []elevio.ElevIO
 
-	for i := 0; i < N_ELEVATORS; i++ {
+	for i := 0; i < len(test.InitialFloors); i++ {
 		var simulatedElevator fatelevator.SimulatedElevator
 		simulatedElevator.Init(
 			USERPROGRAM_PORTS[i],
 			FATPROGRAM_PORTS[i],
 			tmux.GetTTYFromPane(i+1),
-			0,
+			uint8(test.InitialFloors[i]),
 		)
 
 		simulatedElevators = append(simulatedElevators, simulatedElevator)
@@ -68,7 +70,7 @@ func main() {
 
 	time.Sleep(500 * time.Millisecond)
 
-	for i := 0; i < N_ELEVATORS; i++ {
+	for i := 0; i < len(test.InitialFloors); i++ {
 		elevators = append(elevators, ElevatorConfig{
 			UserAddrPort: netip.AddrPortFrom(netip.AddrFrom4(LOCALHOST), USERPROGRAM_PORTS[i]),
 			FatAddrPort:  netip.AddrPortFrom(netip.AddrFrom4(LOCALHOST), FATPROGRAM_PORTS[i]),
@@ -79,22 +81,8 @@ func main() {
 
 	time.Sleep(1000 * time.Millisecond)
 
-	var eventList = []events.Event{
-		events.Event{
-			ID:          "init",
-			Description: "Initial event",
-			TriggerType: events.TRIGGER_INIT,
-			ActionType:  events.ACTION_MAKE_ORDER,
-			ActionParams: events.Button{
-				Elevator: 0,
-				ButtonEvent: elevio.ButtonEvent{
-					Button: elevio.BT_Cab,
-					Floor:  3,
-				},
-			},
-		},
-	}
-	go events.EventListener(simulatedElevators, eventList)
+
+go events.EventListener(simulatedElevators, test.EventList)
 
 	//FIXME
 	time.Sleep(10000000 * time.Second)
