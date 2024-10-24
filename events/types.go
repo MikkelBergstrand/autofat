@@ -5,24 +5,26 @@ import "autofat/elevio"
 type EventType byte
 
 const (
-	TRIGGER_INIT = 1
-	TRIGGER_TIMER = 2
+	TRIGGER_INIT         = 1
+	TRIGGER_TIMER        = 2
 	TRIGGER_ARRIVE_FLOOR = 3
-	TRIGGER_DOOR_OPEN = 4
-	TRIGGER_DOOR_CLOSE = 5
+	TRIGGER_DOOR_OPEN    = 4
+	TRIGGER_DOOR_CLOSE   = 5
+	TRIGGER_FLOOR_LIGHT
 )
 
 const (
-	ACTION_OPEN_DOOR = 1
+	ACTION_NONE       = 0
+	ACTION_OPEN_DOOR  = 1
 	ACTION_MAKE_ORDER = 2
 )
 
 type Floor struct {
-	Elevator int 
-	Floor int
+	Elevator int
+	Floor    int
 }
 
-func (f Floor) Equals(other Floor)  bool  {
+func (f Floor) Equals(other Floor) bool {
 	return f.Elevator == other.Elevator && f.Floor == other.Floor
 }
 
