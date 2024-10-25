@@ -23,6 +23,7 @@ type SimulatedElevator struct {
 	Chan_ButtonPresser chan elevio.ButtonEvent
 	Chan_ProcessKiller chan int
 	Chan_ProcessDone   chan int
+	Chan_FloorLight		 chan int
 }
 
 func (instance *SimulatedElevator) Init(userPort uint16, fatPort uint16, tty string, initialFloor uint8) {
@@ -30,6 +31,7 @@ func (instance *SimulatedElevator) Init(userPort uint16, fatPort uint16, tty str
 	instance.Chan_ProcessDone = make(chan int)
 	instance.Chan_FloorSensor = make(chan int)
 	instance.Chan_ButtonPresser = make(chan elevio.ButtonEvent)
+	instance.Chan_FloorLight = make(chan int)
 	instance.CurrentFloor = initialFloor
 	instance.Tty = tty
 	instance.UserPort = userPort
@@ -60,6 +62,7 @@ func RunSimulator(io *elevio.ElevIO, elevator SimulatedElevator) {
 
 	io.Init(fmt.Sprintf(":%d", elevator.FatPort), elevio.N_FLOORS)
 	go io.PollFloorSensor(elevator.Chan_FloorSensor)
+	go io.PollFloorLight(elevator.Chan_FloorLight)
 
 	go func() {
 		for {

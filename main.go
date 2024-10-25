@@ -4,8 +4,8 @@ import (
 	"autofat/elevio"
 	"autofat/events"
 	"autofat/fatelevator"
-	"autofat/tmux"
 	"autofat/tests"
+	"autofat/tmux"
 	"fmt"
 	"net/netip"
 	"os/exec"
@@ -14,7 +14,7 @@ import (
 )
 
 var LAUNCH_PROGRAM_CMD = "go"
-var LAUNCH_PROGRAM_DIR = "/home/mikkel/dev/prosjekt/sanntidsprosjekt"
+var LAUNCH_PROGRAM_DIR = "../sanntidsprosjekt"
 
 type ElevatorConfig struct {
 	UserAddrPort netip.AddrPort
@@ -81,8 +81,7 @@ func main() {
 
 	time.Sleep(1000 * time.Millisecond)
 
-
-go events.EventListener(simulatedElevators, test.EventList)
+	go events.EventListener(simulatedElevators, test.EventList)
 
 	//FIXME
 	time.Sleep(10000000 * time.Second)

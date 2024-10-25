@@ -75,15 +75,11 @@ func (io *ElevIO) PollButtons(receiver chan<- ButtonEvent) {
 }
 
 func (io *ElevIO) PollFloorSensor(receiver chan<- int) {
-	prev := -1
-	for {
-		time.Sleep(_pollRate)
-		v := io.GetFloor()
-		if v != prev && v != -1 {
-			receiver <- v
-		}
-		prev = v
-	}
+	pollInt(receiver, io.GetFloor)
+}
+
+func (io *ElevIO) PollFloorLight(receiver chan<- int) {
+		pollInt(receiver, io.GetFloorLight)	
 }
 
 func (io *ElevIO) PollStopButton(receiver chan<- bool) {
@@ -126,6 +122,16 @@ func (io *ElevIO) GetFloor() int {
 		return -1
 	}
 }
+
+func (io *ElevIO) GetFloorLight() int {
+	a := io.read([4]byte{11, 0, 0, 0})
+	if a[1] != 0 {
+		return int(a[2])
+	} else {
+		return -1
+	}
+}
+
 
 func (io *ElevIO) GetStop() bool {
 	a := io.read([4]byte{8, 0, 0, 0})
@@ -178,4 +184,16 @@ func toBool(a byte) bool {
 		b = true
 	}
 	return b
+}
+
+func pollInt(receiver chan<- int, caller func() int) {
+	prev := -1
+	for {
+		time.Sleep(_pollRate)
+		v := caller()
+		if v != prev && v != -1 {
+			receiver <- v
+		}
+		prev = v
+	}
 }

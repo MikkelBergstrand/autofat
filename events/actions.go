@@ -80,6 +80,11 @@ func listenToElevators(elevatorId int, simulatedElevator *fatelevator.SimulatedE
 				Floor: new_floor,
 				Elevator: elevatorId,
 			})	
+			case new_floor_light := <-simulatedElevator.Chan_FloorLight:
+				pollEvents(TRIGGER_FLOOR_LIGHT, Floor {
+					Floor: new_floor_light,
+					Elevator: elevatorId,
+				})
 		}
 	}			
 }
