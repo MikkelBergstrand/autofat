@@ -5,12 +5,14 @@ import "autofat/elevio"
 type EventType byte
 
 const (
-	TRIGGER_INIT         = 1
+	TRIGGER_INIT         = 1 
 	TRIGGER_TIMER        = 2
 	TRIGGER_ARRIVE_FLOOR = 3
 	TRIGGER_DOOR_OPEN    = 4
 	TRIGGER_DOOR_CLOSE   = 5
-	TRIGGER_FLOOR_LIGHT
+	TRIGGER_FLOOR_LIGHT  = 6
+	TRIGGER_LOAD         = 7
+	TRIGGER_DELAY        = 8
 )
 
 const (
