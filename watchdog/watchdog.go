@@ -9,12 +9,12 @@ import (
 func KillerWatchdog(process *os.Process, chan_KillProcess chan int, chan_ProcessDone chan int) {
 	for {
 		select {
-			case <-chan_ProcessDone:
-				fmt.Println("Process is done, terminating killer watchdog")
-				return
-			case v := <-chan_KillProcess:
-				fmt.Println("Watchdog killing process", v)
-				process.Kill()
+		case <-chan_ProcessDone:
+			fmt.Println("Process is done, terminating killer watchdog")
+			return
+		case v := <-chan_KillProcess:
+			fmt.Println("Watchdog killing process", v)
+			process.Kill()
 		}
 	}
 }

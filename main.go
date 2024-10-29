@@ -59,7 +59,6 @@ func main() {
 			USERPROGRAM_PORTS[i],
 			FATPROGRAM_PORTS[i],
 			tmux.GetTTYFromPane(i+1),
-			uint8(test.InitialFloors[i]),
 		)
 
 		simulatedElevators = append(simulatedElevators, simulatedElevator)

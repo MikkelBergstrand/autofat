@@ -7,14 +7,13 @@ import (
 	"time"
 )
 
-
-
 const _pollRate = 20 * time.Millisecond
+
 type ElevIO struct {
 	initialized bool
-	numFloors int
-	mtx            sync.Mutex
-	conn           net.Conn
+	numFloors   int
+	mtx         sync.Mutex
+	conn        net.Conn
 }
 
 func (io *ElevIO) Init(addr string, numFloors int) {
@@ -31,8 +30,6 @@ func (io *ElevIO) Init(addr string, numFloors int) {
 	}
 	io.initialized = true
 }
-
-
 
 func (io *ElevIO) SetMotorDirection(dir MotorDirection) {
 	io.write([4]byte{1, byte(dir), 0, 0})
@@ -58,6 +55,22 @@ func (io *ElevIO) SetStopLamp(value bool) {
 	io.write([4]byte{5, toByte(value), 0, 0})
 }
 
+func (io *ElevIO) PollOrderLights(receiver chan<- ButtonEvent) {
+	prev := make([][3]bool, io.numFloors)
+	for {
+		time.Sleep(_pollRate)
+		for f := 0; f < io.numFloors; f++ {
+			for b := ButtonType(0); b < 3; b++ {
+				v := io.GetOrderLight(b, f)
+				if v != prev[f][b] {
+					receiver <- ButtonEvent{Floor: f, Button: ButtonType(b), Value: v}
+				}
+				prev[f][b] = v
+			}
+		}
+	}
+}
+
 func (io *ElevIO) PollButtons(receiver chan<- ButtonEvent) {
 	prev := make([][3]bool, io.numFloors)
 	for {
@@ -79,38 +92,28 @@ func (io *ElevIO) PollFloorSensor(receiver chan<- int) {
 }
 
 func (io *ElevIO) PollFloorLight(receiver chan<- int) {
-		pollInt(receiver, io.GetFloorLight)	
+	pollInt(receiver, io.GetFloorLight)
 }
 
 func (io *ElevIO) PollStopButton(receiver chan<- bool) {
-	prev := false
-	for {
-		time.Sleep(_pollRate)
-		v := io.GetStop()
-		if v != prev {
-			receiver <- v
-		}
-		prev = v
-	}
+	pollBool(receiver, io.GetStop)
 }
 
 func (io *ElevIO) PollObstructionSwitch(receiver chan<- bool) {
-	prev := false
-	for {
-		time.Sleep(_pollRate)
-		v := io.GetObstruction()
-		if v != prev {
-			receiver <- v
-		}
-		prev = v
-	}
+	pollBool(receiver, io.GetObstruction)
 }
 
-
-
+func (io *ElevIO) PollDoor(receiver chan<- bool) {
+	pollBool(receiver, io.GetDoor)
+}
 
 func (io *ElevIO) GetButton(button ButtonType, floor int) bool {
 	a := io.read([4]byte{6, byte(button), byte(floor), 0})
+	return toBool(a[1])
+}
+
+func (io *ElevIO) GetOrderLight(button ButtonType, floor int) bool {
+	a := io.read([4]byte{13, byte(button), byte(floor), 0})
 	return toBool(a[1])
 }
 
@@ -132,7 +135,6 @@ func (io *ElevIO) GetFloorLight() int {
 	}
 }
 
-
 func (io *ElevIO) GetStop() bool {
 	a := io.read([4]byte{8, 0, 0, 0})
 	return toBool(a[1])
@@ -143,20 +145,25 @@ func (io *ElevIO) GetObstruction() bool {
 	return toBool(a[1])
 }
 
-
-
-
+func (io *ElevIO) GetDoor() bool {
+	a := io.read([4]byte{12, 0, 0, 0})
+	return toBool(a[1])
+}
 
 func (io *ElevIO) read(in [4]byte) [4]byte {
 	io.mtx.Lock()
 	defer io.mtx.Unlock()
 
 	_, err := io.conn.Write(in[:])
-	if err != nil { panic("Lost connection to Elevator Server") }
+	if err != nil {
+		panic("Lost connection to Elevator Server")
+	}
 
 	var out [4]byte
 	_, err = io.conn.Read(out[:])
-	if err != nil { panic("Lost connection to Elevator Server") }
+	if err != nil {
+		panic("Lost connection to Elevator Server")
+	}
 
 	return out
 }
@@ -166,9 +173,10 @@ func (io *ElevIO) write(in [4]byte) {
 	defer io.mtx.Unlock()
 
 	_, err := io.conn.Write(in[:])
-	if err != nil { panic("Lost connection to Elevator Server") }
+	if err != nil {
+		panic("Lost connection to Elevator Server")
+	}
 }
-
 
 func toByte(a bool) byte {
 	var b byte = 0
@@ -192,6 +200,18 @@ func pollInt(receiver chan<- int, caller func() int) {
 		time.Sleep(_pollRate)
 		v := caller()
 		if v != prev && v != -1 {
+			receiver <- v
+		}
+		prev = v
+	}
+}
+
+func pollBool(receiver chan<- bool, caller func() bool) {
+	prev := false
+	for {
+		time.Sleep(_pollRate)
+		v := caller()
+		if v != prev {
 			receiver <- v
 		}
 		prev = v

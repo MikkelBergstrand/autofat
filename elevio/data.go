@@ -19,5 +19,5 @@ const (
 type ButtonEvent struct {
 	Floor  int
 	Button ButtonType
+	Value  bool
 }
-
