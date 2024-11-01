@@ -4,97 +4,70 @@ import (
 	"autofat/elevio"
 	"autofat/fatelevator"
 	"fmt"
-	"log"
 	"time"
 )
 
-var _allEvents map[string]Event
-var _loadedEvents map[string]*Event
+var _safetyAsserts []SafetyAssert
+var _untilAsserts []WaitFor
+
 var _simulatedElevators []fatelevator.SimulatedElevator
 var _elevatorStates []ElevatorState
 
-func loadEvent(event *Event) {
-	fmt.Printf("Event %s (%s) has been loaded \n", event.ID, event.Description)
-	_loadedEvents[event.ID] = event
+var _chan_SafetyFailure <-chan bool
 
-	if event.TriggerType == TRIGGER_INIT || event.TriggerType == TRIGGER_LOAD {
-		//LOAD and INIT both trigger as they are queued.
-		triggerEvent(event)
-	} else if event.TriggerType == TRIGGER_DELAY {
-		// Delay trigger: params are milliseconds to wait. Start a goroutine
-		// that does nothing but wait for timer, then trigger.
-		go func() {
-			timer := time.NewTimer(time.Millisecond * time.Duration(event.TriggerParams.(int)))
-			<-timer.C
-			triggerEvent(event)
-		}()
-	}
-
-	switch event.ActionType {
-	case ACTION_MAKE_ORDER:
-		params := event.ActionParams.(Button)
-		fmt.Printf("Action execute: Elevator %d making order %d %d \n", params.Elevator, params.Button, params.Floor)
-		_simulatedElevators[params.Elevator].Chan_ButtonPresser <- params.ButtonEvent
-	}
+func AssertSafety(id string, fn TestConditionFunction, timeAllowed time.Duration) {
+	_safetyAsserts = append(_safetyAsserts, SafetyAssert{
+		Condition:   fn,
+		AllowedTime: timeAllowed,
+		C:           _chan_SafetyFailure,
+		assert: 0,
+	})
 }
 
-func triggerEvent(event *Event) {
-	fmt.Printf("Triggered event %s (%s)\n", event.ID, event.Description)
-	//Load cascading events
-	for _, eventId := range event.LoadOnTrigger {
-		toLoad, ok := _allEvents[eventId]
-		if !ok {
-			log.Fatalf("Unrecognized event id %s\n", eventId)
-		}
-		loadEvent(&toLoad)
-	}
-
+func AssertUntil(id string, fn TestConditionFunction, timeout time.Duration) chan bool {
+	c := make(chan bool)
+	_untilAsserts = append(_untilAsserts, WaitFor{
+		Condition: fn,
+		Timeout:   timeout,
+		C:         c,
+	})
+	return c
 }
 
 // On the arrival of a new trigger, check the loaded events and see if
 // any of them are listening on the current trigger. If yes,
-func pollEvents(triggerType byte, triggerParams interface{}) {
+func pollEvents(triggerType Trigger, triggerParams interface{}) {
 	fmt.Println("Polling events of type", triggerType, "params: ", triggerParams)
-	for _, event := range _loadedEvents {
-		if event.ActionType == triggerType {
-			switch event.ActionType {
-			case ACTION_MAKE_ORDER:
-				if event.ActionParams.(Button).Equals(event.TriggerParams.(Button)) {
-					triggerEvent(event)
-				}
-			}
+	for i := range _safetyAsserts {
+		event := &_safetyAsserts[i]
+		if event.IsAsserted() && event.Condition(_elevatorStates) {
+			event.Abort()
+			fmt.Println("safety assert aborted.")
+		} else if !event.Condition(_elevatorStates) {
+			fmt.Println(i, "safety assert failed!")
+			event.Assert()
 		}
 	}
-}
 
-func initEvents(events []Event) {
-	_loadedEvents = make(map[string]*Event)
-	_allEvents = make(map[string]Event)
-
-	for i := range events {
-		_allEvents[events[i].ID] = events[i]
-	}
-
-	for _, event := range _allEvents {
-		if event.TriggerType == TRIGGER_INIT {
-			loadEvent(&event)
+	for i, event := range _untilAsserts {
+		if event.Condition(_elevatorStates) {
+			fmt.Println("until assert happened!")
+			event.Trigger()
+			_untilAsserts = append(_untilAsserts[:i], _untilAsserts[i+1:]...)
 		}
 	}
 }
 
 func EventListener(
 	simulatedElevators []fatelevator.SimulatedElevator,
-	events []Event,
-) {
-
+	chan_SafetyFailure <-chan bool) {
 	//Initialize bindings between event listeners, and setup our perspective of the elevator states.
 	_simulatedElevators = simulatedElevators
+	_chan_SafetyFailure = chan_SafetyFailure
 	for i := range _simulatedElevators {
 		_elevatorStates = append(_elevatorStates, InitElevatorState(elevio.N_FLOORS))
 		go listenToElevators(i, &_simulatedElevators[i])
 	}
-
-	initEvents(events)
 }
 
 func listenToElevators(elevatorId int, simulatedElevator *fatelevator.SimulatedElevator) {

@@ -1,46 +1,37 @@
 package tests
 
 import (
-	"autofat/elevio"
 	"autofat/events"
+	"autofat/fatelevator"
+	"fmt"
+	"time"
 )
 
-type TestParams struct {
-	InitialFloors []int //The size of the array denotes the number of active elevators to use.
-	EventList     []events.Event
-}
 
-// Single elevator test.
-// Test if lamp lights up when we arrive at a floor.
-func TestFloorLamp() TestParams {
-	eventList := []events.Event{
-		{
-			ID:            "init",
-			Description:   "Initial event",
-			TriggerType:   events.TRIGGER_INIT,
-			LoadOnTrigger: []string{"floor_light_0"},
-		},
-		{
-			ID:          "floor_light_0",
-			Description: "Await floor 0 light",
-			TriggerType: events.TRIGGER_FLOOR_LIGHT,
-			TriggerParams: events.Floor{
-				Floor:    0,
-				Elevator: 0,
-			},
-			ActionType: events.ACTION_MAKE_ORDER,
-			ActionParams: events.Button{
-				Elevator: 0,
-				ButtonEvent: elevio.ButtonEvent{
-					Button: elevio.BT_Cab,
-					Floor:  3,
-				},
-			},
-		},
-	}
 
-	return TestParams{
-		InitialFloors: []int{0},
-		EventList:     eventList,
+func TestFloorLamp(e []fatelevator.SimulatedElevator) bool {
+	timeout := make(chan bool)
+	success := make(chan bool)
+	go events.EventListener(e, timeout)
+
+	go func ()  {
+		c := events.AssertUntil("init", func(es []events.ElevatorState) bool { return es[0].Floor == 0 && !es[0].DoorOpen }, time.Second*1)
+
+		fmt.Println("Wait for initial state")
+		<-c
+		fmt.Println("Initial state succeeded.")
+
+		events.AssertSafety("floor_light_correct", func(es []events.ElevatorState) bool { return es[0].FloorLamp == es[0].Floor }, time.Millisecond*200)
+		<-success
+	}()
+
+	
+	for {
+		select {
+		case <-success:
+			return true 
+		case <-timeout:
+			return false
+		}
 	}
 }

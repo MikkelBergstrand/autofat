@@ -1,26 +1,107 @@
 package events
 
-import "autofat/elevio"
+import (
+	"autofat/elevio"
+	"fmt"
+	"math/rand/v2"
+	"time"
+)
 
 type EventType byte
 
+type TestConditionFunction func([]ElevatorState) bool  
+
+type SafetyAssert struct {
+  Condition TestConditionFunction
+  AllowedTime time.Duration
+  assert int 
+  C <-chan bool
+}
+
+func (w* SafetyAssert) IsAsserted() bool {
+  return w.assert > 0 
+}
+
+func (w* SafetyAssert) Abort() {
+  if(!w.IsAsserted()) {
+    return 
+  }
+  w.assert = 0
+}
+
+func (w* SafetyAssert) Assert() {
+  if(w.IsAsserted()) {
+    return
+  }
+
+  //Assign the assert "unique" id, so we know that
+  //if the assert id is the same after the allowed time, 
+  //we know that that assertion event is what kept the assert alive.
+  w.assert = rand.Int()
+
+  go func() {
+    assert_at_beginning := w.assert
+    timer := time.NewTimer(w.AllowedTime)
+    <-timer.C
+    if w.assert == assert_at_beginning {
+      fmt.Println("fire")
+      <-w.C
+    }
+  }()
+  
+}
+
+
+
+type WaitFor struct {
+  Condition TestConditionFunction
+  Timeout time.Duration
+  C   chan bool
+  triggered bool
+}
+
+//Trigger the WaitFor by putting out on the channel.
+//Channel may only put out once.
+func (w WaitFor) Trigger() {
+  if(w.triggered) {
+    return
+  }
+
+  w.triggered = true
+  w.C <- true
+}
+
+
+type Trigger int
 const (
-	TRIGGER_INIT         = 1
-	TRIGGER_TIMER        = 2
-	TRIGGER_ARRIVE_FLOOR = 3
-	TRIGGER_DOOR_OPEN    = 4
-	TRIGGER_DOOR_CLOSE   = 5
-	TRIGGER_FLOOR_LIGHT  = 6
-	TRIGGER_LOAD         = 7
-	TRIGGER_DELAY        = 8
-	TRIGGER_ORDER_LIGHT  = 9
+	TRIGGER_INIT Trigger = iota +1 
+	TRIGGER_TIMER        
+  TRIGGER_ARRIVE_FLOOR 
+	TRIGGER_DOOR_OPEN    
+	TRIGGER_DOOR_CLOSE   
+	TRIGGER_FLOOR_LIGHT  
+	TRIGGER_LOAD         
+	TRIGGER_DELAY        
+	TRIGGER_ORDER_LIGHT  
 )
 
+func (t Trigger) String() string {
+  toStr := map[Trigger]string {
+    TRIGGER_ARRIVE_FLOOR: "ARRIVE_FLOOR",
+    TRIGGER_DOOR_OPEN: "DOOR_OPEN",
+    TRIGGER_DOOR_CLOSE: "DOOR_CLOSE",
+    TRIGGER_FLOOR_LIGHT: "FLOOR_LIGHT",
+    TRIGGER_ORDER_LIGHT: "ORDER_LIGHT",
+  }
+  return toStr[t]
+}
+
+type Action int
 const (
-	ACTION_NONE       = 0
-	ACTION_OPEN_DOOR  = 1
-	ACTION_MAKE_ORDER = 2
-	ACTION_CLOSE_DOOR = 3
+	ACTION_NONE Action = iota+1
+	ACTION_OPEN_DOOR  
+	ACTION_MAKE_ORDER 
+	ACTION_CLOSE_DOOR 
 )
 
 type Floor struct {
@@ -28,37 +109,10 @@ type Floor struct {
 	Floor    int
 }
 
-func (f Floor) Equals(other Floor) bool {
-	return f.Elevator == other.Elevator && f.Floor == other.Floor
-}
 
 type Button struct {
 	elevio.ButtonEvent
 	Elevator int
-}
-
-func (b Button) Equals(other Button) bool {
-	return b.Button == other.Button && b.Floor == other.Floor && b.Elevator == other.Elevator
-}
-
-type Event struct {
-	ID          string
-	Description string
-	RepeatCount byte
-
-	TriggerType   byte
-	TriggerParams interface{}
-
-	ActionType byte
-
-	ActionParams interface{}
-
-	//Time (in milliseconds) from event is loaded to a timeout is triggered.
-	TimeoutMillisec int
-
-	LoadOnTrigger []string
-	LoadOnRepeat  []string
-	LoadOnFailure []string
 }
 
 type ElevatorState struct {

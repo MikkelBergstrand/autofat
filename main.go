@@ -2,7 +2,6 @@ package main
 
 import (
 	"autofat/elevio"
-	"autofat/events"
 	"autofat/fatelevator"
 	"autofat/tests"
 	"autofat/tmux"
@@ -38,7 +37,9 @@ func userProcess(userPort uint16, id int) {
 }
 
 func main() {
-	test := tests.TestFloorLamp()
+	test := tests.TestParams{
+		InitialFloors: []int{0},
+	}
 
 	USERPROGRAM_PORTS := [3]uint16{12345, 12346, 12347}
 	FATPROGRAM_PORTS := [3]uint16{12348, 12349, 12350}
@@ -80,7 +81,8 @@ func main() {
 
 	time.Sleep(1000 * time.Millisecond)
 
-	go events.EventListener(simulatedElevators, test.EventList)
+	eval := tests.TestFloorLamp(simulatedElevators)
+	fmt.Println("Value of test was", eval)
 
 	//FIXME
 	time.Sleep(10000000 * time.Second)
