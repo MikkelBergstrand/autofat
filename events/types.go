@@ -62,7 +62,7 @@ type WaitFor struct {
 
 //Trigger the WaitFor by putting out on the channel.
 //Channel may only put out once.
-func (w WaitFor) Trigger() {
+func (w* WaitFor) Trigger() {
   if(w.triggered) {
     return
   }
@@ -99,9 +99,8 @@ func (t Trigger) String() string {
 type Action int
 const (
 	ACTION_NONE Action = iota+1
-	ACTION_OPEN_DOOR  
 	ACTION_MAKE_ORDER 
-	ACTION_CLOSE_DOOR 
+	ACTION_C 
 )
 
 type Floor struct {
