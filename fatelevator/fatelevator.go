@@ -1,11 +1,10 @@
 package fatelevator
 
 import (
+	"autofat/config"
 	"autofat/elevio"
-	"autofat/watchdog"
+	"autofat/tmux"
 	"fmt"
-	"log"
-	"os"
 	"os/exec"
 	"strconv"
 	"time"
@@ -14,10 +13,7 @@ import (
 const LAUNCH_SIMLATOR string = "./SimElevatorServer"
 
 type SimulatedElevator struct {
-	Tty      string
-	UserPort uint16
-	FatPort  uint16
-
+	Config 			   config.ElevatorConfig
 	Chan_FloorSensor   chan int
 	Chan_ButtonPresser chan elevio.ButtonEvent
 	Chan_OrderLights   chan elevio.ButtonEvent
@@ -27,7 +23,7 @@ type SimulatedElevator struct {
 	Chan_Door          chan bool
 }
 
-func (instance *SimulatedElevator) Init(userPort uint16, fatPort uint16, tty string) {
+func (instance *SimulatedElevator) Init(config config.ElevatorConfig) {
 	instance.Chan_ProcessKiller = make(chan int)
 	instance.Chan_ProcessDone = make(chan int)
 	instance.Chan_FloorSensor = make(chan int)
@@ -35,34 +31,21 @@ func (instance *SimulatedElevator) Init(userPort uint16, fatPort uint16, tty str
 	instance.Chan_OrderLights = make(chan elevio.ButtonEvent)
 	instance.Chan_FloorLight = make(chan int)
 	instance.Chan_Door = make(chan bool)
-	instance.Tty = tty
-	instance.UserPort = userPort
-	instance.FatPort = fatPort
+	instance.Config = config
 }
 
 func RunSimulator(io *elevio.ElevIO, elevator SimulatedElevator) {
-	fmt.Printf("Launching simulator process, port=%d, fatPort=%d\n", elevator.UserPort, elevator.FatPort)
-	cmd := exec.Command(LAUNCH_SIMLATOR, "--port", strconv.Itoa(int(elevator.UserPort)), "--externalPort", strconv.Itoa(int(elevator.FatPort)))
 
-	tty, err := os.OpenFile(elevator.Tty, os.O_RDWR, os.ModePerm)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	defer tty.Close()
-
-	cmd.Stdout = tty
-	cmd.Stderr = tty
-	cmd.Stdin = tty
-
-	// Run the process
-	go watchdog.KillerWatchdog(cmd.Process, elevator.Chan_ProcessKiller, elevator.Chan_ProcessDone)
-
-	go watchdog.AwaitProcessReturn(cmd, elevator.Chan_ProcessDone)
+	fmt.Printf("Launching simulator process, port=%d, fatPort=%d\n", elevator.Config.UserAddrPort.Port(), elevator.Config.FatAddrPort.Port())
+	cmd := exec.Command(LAUNCH_SIMLATOR, 
+		"--port", strconv.Itoa(int(elevator.Config.UserAddrPort.Port())), 
+		"--externalPort", strconv.Itoa(int(elevator.Config.FatAddrPort.Port())))
+	tmux.LaunchInPane(cmd)
 
 	//Wait for process to start, then init the IO interface
 	time.Sleep(1 * time.Second)
 
-	io.Init(fmt.Sprintf(":%d", elevator.FatPort), elevio.N_FLOORS)
+	io.Init(fmt.Sprintf(":%d", elevator.Config.FatAddrPort.Port()), elevio.N_FLOORS)
 	go io.PollFloorSensor(elevator.Chan_FloorSensor)
 	go io.PollFloorLight(elevator.Chan_FloorLight)
 	go io.PollDoor(elevator.Chan_Door)

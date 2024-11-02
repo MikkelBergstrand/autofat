@@ -22,7 +22,6 @@ type ElevatorInstance struct {
 	CurrentFloor     int
 }
 
-
 func main() {
 	USERPROGRAM_PORTS := [3]uint16{12345, 12346, 12347}
 	FATPROGRAM_PORTS := [3]uint16{12348, 12349, 12350}
@@ -33,17 +32,21 @@ func main() {
 	tmux.Cleanup()
 	tmux.Launch()
 
-	var simulatedElevators []fatelevator.SimulatedElevator
 	var elevators []config.ElevatorConfig
+	for i := 0; i < 3; i++ {
+		elevators = append(elevators, config.ElevatorConfig{
+			UserAddrPort: netip.AddrPortFrom(netip.AddrFrom4(LOCALHOST), USERPROGRAM_PORTS[i]),
+			FatAddrPort:  netip.AddrPortFrom(netip.AddrFrom4(LOCALHOST), FATPROGRAM_PORTS[i]),
+		})
+	}
+
+
+	var simulatedElevators []fatelevator.SimulatedElevator
 	var elevios []elevio.ElevIO
 
 	for i := 0; i < N_ELEVATORS; i++ {
 		var simulatedElevator fatelevator.SimulatedElevator
-		simulatedElevator.Init(
-			USERPROGRAM_PORTS[i],
-			FATPROGRAM_PORTS[i],
-			tmux.GetTTYFromPane(i+1),
-		)
+		simulatedElevator.Init(elevators[i])
 
 		simulatedElevators = append(simulatedElevators, simulatedElevator)
 		elevios = append(elevios, elevio.ElevIO{})
@@ -53,12 +56,6 @@ func main() {
 
 	time.Sleep(500 * time.Millisecond)
 
-	for i := 0; i < 3; i++ {
-		elevators = append(elevators, config.ElevatorConfig{
-			UserAddrPort: netip.AddrPortFrom(netip.AddrFrom4(LOCALHOST), USERPROGRAM_PORTS[i]),
-			FatAddrPort:  netip.AddrPortFrom(netip.AddrFrom4(LOCALHOST), FATPROGRAM_PORTS[i]),
-		})
-	}
 	studentprogram.InitalizeFromConfig(LAUNCH_PROGRAM_DIR, elevators, N_ELEVATORS)
 
 	time.Sleep(1000 * time.Millisecond)
