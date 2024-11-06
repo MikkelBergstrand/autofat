@@ -34,13 +34,13 @@ func (instance *SimulatedElevator) Init(config config.ElevatorConfig) {
 	instance.Config = config
 }
 
-func RunSimulator(io *elevio.ElevIO, elevator SimulatedElevator) {
+func RunSimulator(io *elevio.ElevIO, elevator SimulatedElevator, tmuxPane int) {
 
 	fmt.Printf("Launching simulator process, port=%d, fatPort=%d\n", elevator.Config.UserAddrPort.Port(), elevator.Config.FatAddrPort.Port())
 	cmd := exec.Command(LAUNCH_SIMLATOR, 
 		"--port", strconv.Itoa(int(elevator.Config.UserAddrPort.Port())), 
 		"--externalPort", strconv.Itoa(int(elevator.Config.FatAddrPort.Port())))
-	tmux.LaunchInPane(cmd)
+	tmux.LaunchInPane(cmd, tmux.WINDOW_ELEVATORS, tmuxPane)
 
 	//Wait for process to start, then init the IO interface
 	time.Sleep(1 * time.Second)

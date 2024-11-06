@@ -10,15 +10,18 @@ import (
 
 const TMUX_SESSION_NAME string = "autofat"
 
-var _pane_index = 1
+const WINDOW_ELEVATORS string = "Elevators"
+const WINDOW_PROGRAMS string = "Programs"
 
 func Cleanup() {
 	fmt.Println("Deleting previous tmux-session " + TMUX_SESSION_NAME + ", if any..")
 	exec.Command("tmux", "kill-session", "-t", TMUX_SESSION_NAME).Run()
 }
 
-func LaunchInPane(ex *exec.Cmd) {
-	err := exec.Command("tmux", "select-pane", "-t", strconv.Itoa(_pane_index)).Run()
+func LaunchInPane(ex *exec.Cmd, window string, paneId int) {
+	exec.Command("tmux", "select-window", "-t", window)
+
+	err := exec.Command("tmux", "select-pane", "-t", strconv.Itoa(paneId)).Run()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -27,13 +30,11 @@ func LaunchInPane(ex *exec.Cmd) {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	_pane_index++
 }
 
 func Launch() {
 	exec.Command("tmux", "new-session", "-d", "-s", "autofat").Run()
-	exec.Command("tmux", "rename-window", "Elevators").Run()
+	exec.Command("tmux", "rename-window", WINDOW_ELEVATORS).Run()
 	exec.Command("tmux", "split-window", "-h").Run()
 	exec.Command("tmux", "split-window", "-v").Run()
 }

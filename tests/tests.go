@@ -7,15 +7,13 @@ import (
 	"time"
 )
 
-
-
 func TestFloorLamp(e []fatelevator.SimulatedElevator) bool {
 	timeout := make(chan bool)
 	success := make(chan bool)
 	go events.EventListener(e, timeout)
 
-	go func ()  {
-		c := events.AssertUntil("init", func(es []events.ElevatorState) bool { return es[0].Floor == 0 && !es[0].DoorOpen }, time.Second*1)
+	go func() {
+		c := events.AssertUntil("init", func(es []events.ElevatorState) bool { return es[0].Floor != -1 && !es[0].DoorOpen }, time.Second*1)
 
 		fmt.Println("Wait for initial state")
 		<-c
@@ -25,11 +23,10 @@ func TestFloorLamp(e []fatelevator.SimulatedElevator) bool {
 		<-success
 	}()
 
-	
 	for {
 		select {
 		case <-success:
-			return true 
+			return true
 		case <-timeout:
 			return false
 		}
