@@ -88,6 +88,5 @@ func main() {
 	eval := test.Run(simulatedElevators)
 	fmt.Println("Value of test was", eval)
 
-	//FIXME
-	time.Sleep(10000000 * time.Second)
+	procmanager.KillAll()
 }
