@@ -26,7 +26,7 @@ type ElevatorInstance struct {
 	CurrentFloor     int
 }
 
-//Cleanup for interrupts, such as when the program is CTRL+C-ed
+// Cleanup for interrupts, such as when the program is CTRL+C-ed
 func initInterruptHandler() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
@@ -38,7 +38,6 @@ func initInterruptHandler() {
 		}
 	}()
 }
-
 
 func main() {
 	USERPROGRAM_PORTS := [3]uint16{12345, 12346, 12347}
@@ -57,7 +56,6 @@ func main() {
 	//Create context, to supply to shell commands.
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
 
 	var elevators []config.ElevatorConfig
 	for i := 0; i < 3; i++ {
