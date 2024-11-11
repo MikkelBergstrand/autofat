@@ -84,7 +84,8 @@ func main() {
 
 	time.Sleep(1000 * time.Millisecond)
 
-	eval := tests.TestFloorLamp(simulatedElevators)
+	test := tests.CreateTest(tests.TestFloorLamp)
+	eval := test.Run(simulatedElevators)
 	fmt.Println("Value of test was", eval)
 
 	//FIXME
