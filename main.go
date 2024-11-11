@@ -17,7 +17,7 @@ import (
 )
 
 // var LAUNCH_PROGRAM_DIR = "../sanntidsprosjekt/TT"
-var LAUNCH_PROGRAM_DIR = "../TTK4145-2024-code-anonymized/09a72ca3/Project"
+var LAUNCH_PROGRAM_DIR = "../sanntidsprosjekt"
 
 type ElevatorInstance struct {
 	Chan_KillProcess chan int
