@@ -25,7 +25,7 @@ func InitalizeFromConfig(ctx context.Context, programDir string, config []config
 	re := regexp.MustCompile("{PORT}")            //Replace PORT with actual port
 	re2 := regexp.MustCompile(`^([^\s]*?) (.*)$`) //Parse command as executable + parameters
 	commands := strings.Split(string(data), "\n")
-	for i := range nElevators {
+	for i := 0; i < nElevators; i++ {
 		cmdStr := re.ReplaceAllString(commands[i], strconv.Itoa((int)(config[i].UserAddrPort.Port())))
 
 		matches := re2.FindStringSubmatch(cmdStr)

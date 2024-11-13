@@ -2,7 +2,6 @@ package main
 
 import (
 	"autofat/config"
-	"autofat/elevio"
 	"autofat/fatelevator"
 	"autofat/procmanager"
 	"autofat/studentprogram"
@@ -39,53 +38,62 @@ func initInterruptHandler() {
 	}()
 }
 
+var USERPROGRAM_PORTS = [3]uint16{12345, 12346, 12347}
+var FATPROGRAM_PORTS = [3]uint16{12348, 12349, 12350}
+var LOCALHOST = [4]byte{127, 0, 0, 1}
+
+var _simulatedElevators []fatelevator.SimulatedElevator
+var _elevatorConfigs []config.ElevatorConfig
+
 func main() {
-	USERPROGRAM_PORTS := [3]uint16{12345, 12346, 12347}
-	FATPROGRAM_PORTS := [3]uint16{12348, 12349, 12350}
-	LOCALHOST := [4]byte{127, 0, 0, 1}
-	N_ELEVATORS := 1
-
 	procmanager.Init()
-
 	initInterruptHandler()
 
-	//Display
 	tmux.Cleanup()
 	tmux.Launch()
 
-	//Create context, to supply to shell commands.
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	var elevators []config.ElevatorConfig
 	for i := 0; i < 3; i++ {
-		elevators = append(elevators, config.ElevatorConfig{
+		_elevatorConfigs = append(_elevatorConfigs, config.ElevatorConfig{
 			UserAddrPort: netip.AddrPortFrom(netip.AddrFrom4(LOCALHOST), USERPROGRAM_PORTS[i]),
 			FatAddrPort:  netip.AddrPortFrom(netip.AddrFrom4(LOCALHOST), FATPROGRAM_PORTS[i]),
 		})
 	}
 
-	var simulatedElevators []fatelevator.SimulatedElevator
-	var elevios []elevio.ElevIO
-
-	for i := 0; i < N_ELEVATORS; i++ {
+	for i := 0; i < 3; i++ {
 		var simulatedElevator fatelevator.SimulatedElevator
-		simulatedElevator.Init(elevators[i])
+		simulatedElevator.Init(_elevatorConfigs[i])
+		_simulatedElevators = append(_simulatedElevators, simulatedElevator)
+		_simulatedElevators[i].Run(i + 1)
+	}
 
-		simulatedElevators = append(simulatedElevators, simulatedElevator)
-		elevios = append(elevios, elevio.ElevIO{})
+	test := tests.CreateTest(tests.TestFloorLamp, []fatelevator.InitializationParams{{
+		InitialFloor:  0,
+		BetweenFloors: false,
+	}})
+	test2 := tests.CreateTest(tests.TestInitBetweenFloors, []fatelevator.InitializationParams{{
+		InitialFloor:  0,
+		BetweenFloors: true,
+	}})
+	runTest(&test)
+	runTest(&test2)
 
-		fatelevator.RunSimulator(&elevios[i], simulatedElevators[i], i+1)
+}
+
+func runTest(test *tests.Test) {
+
+	//Create context, to supply to shell commands.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	for i := 0; i < test.NumElevators(); i++ {
+		_simulatedElevators[i].Reload(test.InitialParams[i])
 	}
 
 	time.Sleep(500 * time.Millisecond)
-
-	studentprogram.InitalizeFromConfig(ctx, LAUNCH_PROGRAM_DIR, elevators, N_ELEVATORS)
-
+	studentprogram.InitalizeFromConfig(ctx, LAUNCH_PROGRAM_DIR, _elevatorConfigs, test.NumElevators())
 	time.Sleep(1000 * time.Millisecond)
 
-	test := tests.CreateTest(tests.TestFloorLamp)
-	eval := test.Run(simulatedElevators)
+	eval := test.Run(_simulatedElevators)
 	fmt.Println("Value of test was", eval)
 
 	procmanager.KillAll()

@@ -12,8 +12,14 @@ import (
 
 const LAUNCH_SIMLATOR string = "./SimElevatorServer"
 
+type InitializationParams struct {
+	InitialFloor  int
+	BetweenFloors bool //Above InitialFloor. So if InitialFloor=1, we will be between 1 and 2.
+}
+
 type SimulatedElevator struct {
-	Config 			   config.ElevatorConfig
+	io                 *elevio.ElevIO
+	Config             config.ElevatorConfig
 	Chan_FloorSensor   chan int
 	Chan_ButtonPresser chan elevio.ButtonEvent
 	Chan_OrderLights   chan elevio.ButtonEvent
@@ -21,6 +27,9 @@ type SimulatedElevator struct {
 	Chan_ProcessDone   chan int
 	Chan_FloorLight    chan int
 	Chan_Door          chan bool
+	Chan_Obstruction   chan bool
+	Chan_Outofbounds   chan bool
+	Chan_Reload        chan bool
 }
 
 func (instance *SimulatedElevator) Init(config config.ElevatorConfig) {
@@ -31,30 +40,43 @@ func (instance *SimulatedElevator) Init(config config.ElevatorConfig) {
 	instance.Chan_OrderLights = make(chan elevio.ButtonEvent)
 	instance.Chan_FloorLight = make(chan int)
 	instance.Chan_Door = make(chan bool)
+	instance.Chan_Obstruction = make(chan bool)
+	instance.Chan_Outofbounds = make(chan bool)
+	instance.Chan_Reload = make(chan bool)
 	instance.Config = config
 }
 
-func RunSimulator(io *elevio.ElevIO, elevator SimulatedElevator, tmuxPane int) {
+func (elevator *SimulatedElevator) Run(tmuxPane int) {
+	elevator.io = &elevio.ElevIO{}
 
 	fmt.Printf("Launching simulator process, port=%d, fatPort=%d\n", elevator.Config.UserAddrPort.Port(), elevator.Config.FatAddrPort.Port())
-	cmd := exec.Command(LAUNCH_SIMLATOR, 
-		"--port", strconv.Itoa(int(elevator.Config.UserAddrPort.Port())), 
-		"--externalPort", strconv.Itoa(int(elevator.Config.FatAddrPort.Port())))
+	cmd := exec.Command(LAUNCH_SIMLATOR,
+		"--port", strconv.Itoa(int(elevator.Config.UserAddrPort.Port())),
+		"--externalPort", strconv.Itoa(int(elevator.Config.FatAddrPort.Port())),
+	)
 	tmux.LaunchInPane(cmd, tmux.WINDOW_ELEVATORS, tmuxPane)
 
 	//Wait for process to start, then init the IO interface
 	time.Sleep(1 * time.Second)
 
-	io.Init(fmt.Sprintf(":%d", elevator.Config.FatAddrPort.Port()), elevio.N_FLOORS)
-	go io.PollFloorSensor(elevator.Chan_FloorSensor)
-	go io.PollFloorLight(elevator.Chan_FloorLight)
-	go io.PollDoor(elevator.Chan_Door)
-	go io.PollOrderLights(elevator.Chan_OrderLights)
+	elevator.io.Init(fmt.Sprintf(":%d", elevator.Config.FatAddrPort.Port()), elevio.N_FLOORS)
+
+	go elevator.io.PollFloorSensor(elevator.Chan_FloorSensor)
+	go elevator.io.PollFloorLight(elevator.Chan_FloorLight)
+	go elevator.io.PollDoor(elevator.Chan_Door)
+	go elevator.io.PollOrderLights(elevator.Chan_OrderLights)
+	go elevator.io.PollObstructionSwitch(elevator.Chan_Obstruction)
+	go elevator.io.PollOutofbounds(elevator.Chan_Outofbounds)
 
 	go func() {
 		for {
 			new_button_press := <-elevator.Chan_ButtonPresser
-			io.PressButton(new_button_press.Button, new_button_press.Floor)
+			elevator.io.PressButton(new_button_press.Button, new_button_press.Floor)
 		}
 	}()
+}
+
+func (elevator *SimulatedElevator) Reload(params InitializationParams) {
+	fmt.Println("Reloading simulator ", elevator.Config.UserAddrPort, "params: ", params)
+	elevator.io.Reload(params.InitialFloor, params.BetweenFloors)
 }

@@ -39,6 +39,16 @@ func (io *ElevIO) SetButtonLamp(button ButtonType, floor int, value bool) {
 	io.write([4]byte{2, byte(button), byte(floor), toByte(value)})
 }
 
+func (io *ElevIO) Reload(initialFloor int, betweenFloors bool) {
+	//long live go, no implicit casting
+	var byte_betweenFloors byte = 0
+	if betweenFloors {
+		byte_betweenFloors = 1
+	}
+
+	io.write([4]byte{0, byte(initialFloor), byte_betweenFloors, 0})
+}
+
 func (io *ElevIO) PressButton(button ButtonType, floor int) {
 	io.write([4]byte{10, byte(button), byte(floor), 0})
 }
@@ -107,6 +117,10 @@ func (io *ElevIO) PollDoor(receiver chan<- bool) {
 	pollBool(receiver, io.GetDoor)
 }
 
+func (io *ElevIO) PollOutofbounds(receiver chan<- bool) {
+	pollBool(receiver, io.GetOutofbounds)
+}
+
 func (io *ElevIO) GetButton(button ButtonType, floor int) bool {
 	a := io.read([4]byte{6, byte(button), byte(floor), 0})
 	return toBool(a[1])
@@ -147,6 +161,11 @@ func (io *ElevIO) GetObstruction() bool {
 
 func (io *ElevIO) GetDoor() bool {
 	a := io.read([4]byte{12, 0, 0, 0})
+	return toBool(a[1])
+}
+
+func (io *ElevIO) GetOutofbounds() bool {
+	a := io.read([4]byte{14, 0, 0, 0})
 	return toBool(a[1])
 }
 
@@ -199,7 +218,7 @@ func pollInt(receiver chan<- int, caller func() int) {
 	for {
 		time.Sleep(_pollRate)
 		v := caller()
-		if v != prev && v != -1 {
+		if v != prev {
 			receiver <- v
 		}
 		prev = v

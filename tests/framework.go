@@ -5,30 +5,32 @@ import (
 	"autofat/fatelevator"
 )
 
-type TestParams struct {
-	InitialFloors []int //The size of the array denotes the number of active elevators to use.
-}
-
 type Test struct {
-	Func func()
-	ChanResult chan bool
-	Result bool
+	InitialParams []fatelevator.InitializationParams
+	Func          func()
+	ChanResult    chan bool
+	Result        bool
 }
 
-func CreateTest(testFunc func()) Test {
+func CreateTest(testFunc func(), initParams []fatelevator.InitializationParams) Test {
 	return Test{
-		Func: testFunc,
-		ChanResult: make(chan bool),
-		Result: false,
+		Func:          testFunc,
+		ChanResult:    make(chan bool),
+		Result:        false,
+		InitialParams: initParams,
 	}
 }
 
 func (test *Test) Run(simulators []fatelevator.SimulatedElevator) bool {
-	go func ()  {
-		go events.EventListener(simulators, test.ChanResult)
+	go func() {
+		events.EventListener(simulators, test.ChanResult)
 		test.Func()
 		test.ChanResult <- true
 	}()
 
 	return <-test.ChanResult
+}
+
+func (test Test) NumElevators() int {
+	return len(test.InitialParams)
 }
