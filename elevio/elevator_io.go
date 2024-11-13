@@ -14,9 +14,10 @@ type ElevIO struct {
 	numFloors   int
 	mtx         sync.Mutex
 	conn        net.Conn
+	killChan    <-chan bool
 }
 
-func (io *ElevIO) Init(addr string, numFloors int) {
+func (io *ElevIO) Init(addr string, numFloors int, killChan <-chan bool) {
 	if io.initialized {
 		fmt.Println("Driver already initialized!")
 		return
@@ -29,6 +30,12 @@ func (io *ElevIO) Init(addr string, numFloors int) {
 		panic(err.Error())
 	}
 	io.initialized = true
+	io.killChan = killChan
+}
+
+func (io *ElevIO) Close() {
+	io.initialized = false
+	io.conn.Close()
 }
 
 func (io *ElevIO) SetMotorDirection(dir MotorDirection) {
@@ -37,16 +44,6 @@ func (io *ElevIO) SetMotorDirection(dir MotorDirection) {
 
 func (io *ElevIO) SetButtonLamp(button ButtonType, floor int, value bool) {
 	io.write([4]byte{2, byte(button), byte(floor), toByte(value)})
-}
-
-func (io *ElevIO) Reload(initialFloor int, betweenFloors bool) {
-	//long live go, no implicit casting
-	var byte_betweenFloors byte = 0
-	if betweenFloors {
-		byte_betweenFloors = 1
-	}
-
-	io.write([4]byte{0, byte(initialFloor), byte_betweenFloors, 0})
 }
 
 func (io *ElevIO) PressButton(button ButtonType, floor int) {
@@ -67,58 +64,65 @@ func (io *ElevIO) SetStopLamp(value bool) {
 
 func (io *ElevIO) PollOrderLights(receiver chan<- ButtonEvent) {
 	prev := make([][3]bool, io.numFloors)
+	ticker := time.NewTicker(_pollRate)
 	for {
-		time.Sleep(_pollRate)
-		for f := 0; f < io.numFloors; f++ {
-			for b := ButtonType(0); b < 3; b++ {
-				v := io.GetOrderLight(b, f)
-				if v != prev[f][b] {
-					receiver <- ButtonEvent{Floor: f, Button: ButtonType(b), Value: v}
+		select {
+		case <-ticker.C:
+			for f := 0; f < io.numFloors; f++ {
+				for b := ButtonType(0); b < 3; b++ {
+					v := io.GetOrderLight(b, f)
+					if v != prev[f][b] {
+						receiver <- ButtonEvent{Floor: f, Button: ButtonType(b), Value: v}
+					}
+					prev[f][b] = v
 				}
-				prev[f][b] = v
 			}
+		case <-io.killChan:
+			return
 		}
 	}
 }
 
 func (io *ElevIO) PollButtons(receiver chan<- ButtonEvent) {
 	prev := make([][3]bool, io.numFloors)
+	ticker := time.NewTicker(_pollRate)
+
 	for {
-		time.Sleep(_pollRate)
-		for f := 0; f < io.numFloors; f++ {
-			for b := ButtonType(0); b < 3; b++ {
-				v := io.GetButton(b, f)
-				if v != prev[f][b] && v {
-					receiver <- ButtonEvent{Floor: f, Button: ButtonType(b)}
+		select {
+		case <-ticker.C:
+			for f := 0; f < io.numFloors; f++ {
+				for b := ButtonType(0); b < 3; b++ {
+					v := io.GetButton(b, f)
+					if v != prev[f][b] && v {
+						receiver <- ButtonEvent{Floor: f, Button: ButtonType(b)}
+					}
+					prev[f][b] = v
 				}
-				prev[f][b] = v
 			}
+		case <-io.killChan: 
+			return
 		}
 	}
 }
 
 func (io *ElevIO) PollFloorSensor(receiver chan<- int) {
-	pollInt(receiver, io.GetFloor)
+	pollInt(receiver, io.killChan, io.GetFloor)
 }
 
 func (io *ElevIO) PollFloorLight(receiver chan<- int) {
-	pollInt(receiver, io.GetFloorLight)
-}
-
-func (io *ElevIO) PollStopButton(receiver chan<- bool) {
-	pollBool(receiver, io.GetStop)
+	pollInt(receiver, io.killChan, io.GetFloorLight)
 }
 
 func (io *ElevIO) PollObstructionSwitch(receiver chan<- bool) {
-	pollBool(receiver, io.GetObstruction)
+	pollBool(receiver, io.killChan, io.GetObstruction)
 }
 
 func (io *ElevIO) PollDoor(receiver chan<- bool) {
-	pollBool(receiver, io.GetDoor)
+	pollBool(receiver, io.killChan, io.GetDoor)
 }
 
 func (io *ElevIO) PollOutofbounds(receiver chan<- bool) {
-	pollBool(receiver, io.GetOutofbounds)
+	pollBool(receiver, io.killChan, io.GetOutofbounds)
 }
 
 func (io *ElevIO) GetButton(button ButtonType, floor int) bool {
@@ -213,26 +217,37 @@ func toBool(a byte) bool {
 	return b
 }
 
-func pollInt(receiver chan<- int, caller func() int) {
+func pollInt(receiver chan<- int, done <-chan bool, caller func() int) {
+	ticker := time.NewTicker(_pollRate)
 	prev := -1
 	for {
-		time.Sleep(_pollRate)
-		v := caller()
-		if v != prev {
-			receiver <- v
+		select {
+		case <-ticker.C:
+			v := caller()
+			if v != prev {
+				receiver <- v
+			}
+			prev = v
+			break
+		case <-done:
+			return
 		}
-		prev = v
 	}
 }
 
-func pollBool(receiver chan<- bool, caller func() bool) {
+func pollBool(receiver chan<- bool, done <-chan bool, caller func() bool) {
 	prev := false
+	ticker := time.NewTicker(_pollRate)
 	for {
-		time.Sleep(_pollRate)
-		v := caller()
-		if v != prev {
-			receiver <- v
+		select {
+		case <-ticker.C:
+			v := caller()
+			if v != prev {
+				receiver <- v
+			}
+			prev = v
+		case <-done:
+			return
 		}
-		prev = v
 	}
 }

@@ -14,6 +14,7 @@ var _simulatedElevators []fatelevator.SimulatedElevator
 var _elevatorStates []ElevatorState
 
 var _chan_SafetyFailure chan<- bool
+var _chan_Kill chan bool
 
 func AssertSafety(id string, fn TestConditionFunction, timeAllowed time.Duration) {
 	_safetyAsserts = append(_safetyAsserts, SafetyAssert{
@@ -28,14 +29,16 @@ func AssertUntil(id string, fn TestConditionFunction, timeout time.Duration) cha
 	chan_done := make(chan bool)
 
 	wait_for := WaitFor{
+		ID:          id,
 		Condition:   fn,
 		Timeout:     timeout,
 		C:           chan_done,
 		Chan_Result: _chan_SafetyFailure,
 	}
 
-	go wait_for.Watchdog()
 	_untilAsserts = append(_untilAsserts, wait_for)
+
+	go _untilAsserts[len(_untilAsserts)-1].Watchdog()
 
 	fmt.Println("AssertUntil: ", id, "Added to system")
 	return chan_done
@@ -54,10 +57,9 @@ func pollEvents(triggerType Trigger, triggerParams interface{}) {
 		}
 	}
 
-	for i, event := range _untilAsserts {
-		if event.Condition(_elevatorStates) {
-			fmt.Println("until assert happened!")
-			event.Trigger()
+	for i := range _untilAsserts {
+		if _untilAsserts[i].Condition(_elevatorStates) {
+			_untilAsserts[i].Trigger()
 			_untilAsserts = append(_untilAsserts[:i], _untilAsserts[i+1:]...)
 		}
 	}
@@ -69,16 +71,16 @@ func EventListener(
 	//Initialize bindings between event listeners, and setup our perspective of the elevator states.
 	_simulatedElevators = simulatedElevators
 	_chan_SafetyFailure = chan_SafetyFailure
+	_chan_Kill = make(chan bool)
 
+	_elevatorStates = make([]ElevatorState, 0)
 	_safetyAsserts = make([]SafetyAssert, 0)
 	_untilAsserts = make([]WaitFor, 0)
 
 	//First time init
-	if len(_elevatorStates) == 0 {
-		for i := range _simulatedElevators {
-			_elevatorStates = append(_elevatorStates, InitElevatorState(elevio.N_FLOORS))
-			go listenToElevators(i, &_simulatedElevators[i])
-		}
+	for i := range _simulatedElevators {
+		_elevatorStates = append(_elevatorStates, InitElevatorState(elevio.N_FLOORS))
+		go listenToElevators(i, &_simulatedElevators[i])
 	}
 }
 
@@ -96,6 +98,11 @@ func listenToElevators(elevatorId int, simulatedElevator *fatelevator.SimulatedE
 	//In response, poll active events for triggers, and update the local state.
 	for {
 		select {
+		case <-_chan_Kill:
+			{
+				fmt.Println("Killed elevator listener ", elevatorId)
+				return
+			}
 		case new_floor := <-simulatedElevator.Chan_FloorSensor:
 			_elevatorStates[elevatorId].Floor = new_floor
 			pollEvents(TRIGGER_ARRIVE_FLOOR, Floor{
@@ -136,5 +143,12 @@ func listenToElevators(elevatorId int, simulatedElevator *fatelevator.SimulatedE
 			_chan_SafetyFailure <- false
 		}
 
+	}
+}
+
+func Kill() {
+	//Send a kill signal for each simulated elevator to kill them all.
+	for _ = range _simulatedElevators {
+		_chan_Kill <- true
 	}
 }

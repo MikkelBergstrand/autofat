@@ -2,6 +2,7 @@ package events
 
 import (
 	"autofat/elevio"
+	"fmt"
 	"math/rand/v2"
 	"time"
 )
@@ -50,6 +51,7 @@ func (w *SafetyAssert) Assert() {
 }
 
 type WaitFor struct {
+	ID          string
 	Condition   TestConditionFunction
 	Timeout     time.Duration
 	C           chan<- bool
@@ -68,6 +70,7 @@ func (w *WaitFor) Watchdog() {
 		return
 	}
 	w.triggered = true
+	fmt.Println("WaitFor ", w.ID, "Timeout")
 	w.Chan_Result <- false
 }
 
@@ -78,6 +81,7 @@ func (w *WaitFor) Trigger() {
 		return
 	}
 
+	fmt.Println("WaitFor ", w.ID, "Trigger")
 	w.triggered = true
 	w.C <- true
 }
@@ -85,12 +89,12 @@ func (w *WaitFor) Trigger() {
 type Trigger int
 
 const (
-	TRIGGER_ARRIVE_FLOOR = iota+1
+	TRIGGER_ARRIVE_FLOOR = iota + 1
 	TRIGGER_DOOR_OPEN
 	TRIGGER_DOOR_CLOSE
 	TRIGGER_FLOOR_LIGHT
 	TRIGGER_ORDER_LIGHT
-  TRIGGER_OBSTRUCTION
+	TRIGGER_OBSTRUCTION
 )
 
 func (t Trigger) String() string {
