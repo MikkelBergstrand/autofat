@@ -11,27 +11,33 @@ type EventType byte
 
 type TestConditionFunction func([]ElevatorState) bool
 
+type EventMetadata struct {
+	TestId string
+	Id     string
+}
+
 type SafetyAssert struct {
 	Condition   TestConditionFunction
 	AllowedTime time.Duration
 	assert      int
 	C           chan<- bool
+	Data        EventMetadata
 }
 
-func (w *SafetyAssert) IsAsserted() bool {
+func (w SafetyAssert) IsAsserted() bool {
 	return w.assert > 0
 }
 
-func (w *SafetyAssert) Abort() {
-	if !w.IsAsserted() {
-		return
+func (w SafetyAssert) Abort() SafetyAssert {
+	if w.IsAsserted() {
+		w.assert = 0
 	}
-	w.assert = 0
+	return w
 }
 
-func (w *SafetyAssert) Assert() {
+func (w SafetyAssert) Assert() SafetyAssert {
 	if w.IsAsserted() {
-		return
+		return w
 	}
 
 	//Assign the assert "unique" id, so we know that
@@ -48,60 +54,86 @@ func (w *SafetyAssert) Assert() {
 		}
 	}()
 
+	return w
+
 }
 
 type WaitFor struct {
-	ID          string
-	Condition   TestConditionFunction
-	Timeout     time.Duration
-	C           chan<- bool
-	Chan_Result chan<- bool
-	triggered   bool
+	Condition    TestConditionFunction
+	Timeout      time.Duration
+	Chan_OK      chan<- bool
+	Chan_Timeout chan<- EventMetadata
+	triggered    bool
+	timer        *time.Timer
+	Data         EventMetadata
 }
 
 // If what we are waiting for does not happen in the allotted time,
 // send something on the failure channel
-func (w *WaitFor) Watchdog() {
-	timer := time.NewTimer(w.Timeout)
-	<-timer.C
-
+func AwaitWatchdog(id string) {
+	w := _untilAsserts[id]
 	//Result is false, we failed (unless we already succeeded).
 	if w.triggered {
 		return
 	}
+
+	w.timer = time.NewTimer(w.Timeout)
+	<-w.timer.C
+
+	//Get updated struct. See if it has triggered or it has been deleted..
+	w, ok := _untilAsserts[id]
+	if !ok {
+		return
+	}
 	w.triggered = true
-	fmt.Println("WaitFor ", w.ID, "Timeout")
-	w.Chan_Result <- false
+	_untilAsserts[id] = w
+
+	fmt.Println("WaitFor ", w.Data.Id, "Timeout")
+	w.Chan_Timeout <- w.Data
 }
 
 // Trigger the WaitFor by putting out on the channel.
 // Channel may only put out once.
-func (w *WaitFor) Trigger() {
+func (w WaitFor) Trigger() WaitFor {
 	if w.triggered {
-		return
+		return w
 	}
 
-	fmt.Println("WaitFor ", w.ID, "Trigger")
+	fmt.Println("WaitFor ", w.Data.Id, "Trigger")
+	if w.timer != nil {
+		w.timer.Reset(w.Timeout)
+	}
 	w.triggered = true
-	w.C <- true
+	w.Chan_OK <- true
+	return w
+}
+
+func (w WaitFor) Delete() WaitFor {
+	w.triggered = true
+	return w
+}
+
+type TriggerMessage struct {
+	Type   Trigger
+	Params interface{}
 }
 
 type Trigger int
 
 const (
 	TRIGGER_ARRIVE_FLOOR = iota + 1
-	TRIGGER_DOOR_OPEN
-	TRIGGER_DOOR_CLOSE
+	TRIGGER_DOOR
 	TRIGGER_FLOOR_LIGHT
 	TRIGGER_ORDER_LIGHT
 	TRIGGER_OBSTRUCTION
+	TRIGGER_SAFETYASSERT
+	TRIGGER_UNTILASSERT
 )
 
 func (t Trigger) String() string {
 	toStr := map[Trigger]string{
 		TRIGGER_ARRIVE_FLOOR: "ARRIVE_FLOOR",
-		TRIGGER_DOOR_OPEN:    "DOOR_OPEN",
-		TRIGGER_DOOR_CLOSE:   "DOOR_CLOSE",
+		TRIGGER_DOOR:         "DOOR",
 		TRIGGER_FLOOR_LIGHT:  "FLOOR_LIGHT",
 		TRIGGER_ORDER_LIGHT:  "ORDER_LIGHT",
 		TRIGGER_OBSTRUCTION:  "OBSTRUCTION",

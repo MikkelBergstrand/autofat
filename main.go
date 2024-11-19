@@ -8,7 +8,6 @@ import (
 	"autofat/studentprogram"
 	"autofat/tests"
 	"autofat/tmux"
-	"context"
 	"fmt"
 	"net/netip"
 	"os"
@@ -49,6 +48,8 @@ func main() {
 	procmanager.Init()
 	initInterruptHandler()
 
+	events.Init()
+
 	for i := 0; i < 3; i++ {
 		_elevatorConfigs = append(_elevatorConfigs, config.ElevatorConfig{
 			UserAddrPort: netip.AddrPortFrom(netip.AddrFrom4(LOCALHOST), USERPROGRAM_PORTS[i]),
@@ -56,14 +57,23 @@ func main() {
 		})
 	}
 
-	test := tests.CreateTest(tests.TestFloorLamp, []fatelevator.InitializationParams{{
+	test_cab_backup := tests.CreateTest("cab_backup", tests.TestCabBackup, []fatelevator.InitializationParams{{
+		InitialFloor:  0,
+		BetweenFloors: false,
+	}, {
+		InitialFloor:  1,
+		BetweenFloors: false,
+	}})
+
+	test := tests.CreateTest("floor_lamp", tests.TestFloorLamp, []fatelevator.InitializationParams{{
 		InitialFloor:  0,
 		BetweenFloors: false,
 	}})
-	test2 := tests.CreateTest(tests.TestInitBetweenFloors, []fatelevator.InitializationParams{{
+	test2 := tests.CreateTest("init_between_floors", tests.TestInitBetweenFloors, []fatelevator.InitializationParams{{
 		InitialFloor:  0,
 		BetweenFloors: true,
 	}})
+	runTest(&test_cab_backup)
 	runTest(&test)
 	runTest(&test2)
 
@@ -73,10 +83,6 @@ func runTest(test *tests.Test) {
 	tmux.Cleanup()
 	tmux.Launch()
 
-	//Create context, to supply to shell commands.
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	var simulatedElevators []fatelevator.SimulatedElevator
 	for i := 0; i < test.NumElevators(); i++ {
 		simulatedElevators = append(simulatedElevators, fatelevator.SimulatedElevator{})
@@ -84,8 +90,10 @@ func runTest(test *tests.Test) {
 		simulatedElevators[i].Run(i + 1)
 	}
 
+	events.EventListener(test.Id, simulatedElevators, test.ChanResult)
+
 	time.Sleep(500 * time.Millisecond)
-	studentprogram.InitalizeFromConfig(ctx, LAUNCH_PROGRAM_DIR, _elevatorConfigs, test.NumElevators())
+	studentprogram.InitalizeFromConfig(LAUNCH_PROGRAM_DIR, _elevatorConfigs, test.NumElevators())
 	time.Sleep(1000 * time.Millisecond)
 
 	eval := test.Run(simulatedElevators)

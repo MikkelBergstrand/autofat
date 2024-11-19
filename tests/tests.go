@@ -3,6 +3,7 @@ package tests
 import (
 	"autofat/elevio"
 	"autofat/events"
+	"autofat/studentprogram"
 	"fmt"
 	"time"
 )
@@ -30,6 +31,20 @@ func waitForInit() {
 	fmt.Println("Initial state succeeded.")
 }
 
+func processCabOrder(elevator int, floor int, done chan bool) {
+	<-events.AssertUntil(fmt.Sprintf("process_order_%d_%d_open_door", elevator, floor), func(es []events.ElevatorState) bool {
+		return es[elevator].DoorOpen && es[elevator].Floor == floor && es[elevator].Direction == elevio.MD_Stop
+	}, time.Second*30)
+	<-events.AssertUntil(fmt.Sprintf("process_order_%d_%d_shut_light", elevator, floor), func(es []events.ElevatorState) bool {
+		return !es[elevator].CabLights[floor]
+	}, time.Second*30)
+	<-events.AssertUntil(fmt.Sprintf("process_order_%d_%d_door_not_open", elevator, floor), func(es []events.ElevatorState) bool {
+		return !es[elevator].DoorOpen && false
+	}, time.Second*30)
+
+	done <- true
+}
+
 func TestFloorLamp() {
 	waitForInit()
 
@@ -44,4 +59,41 @@ func TestFloorLamp() {
 func TestInitBetweenFloors() {
 	waitForInit()
 	time.Sleep(1 * time.Second)
+}
+
+func TestCabBackup() {
+	waitForInit()
+
+	events.MakeOrder(0, elevio.BT_Cab, 3)
+	events.MakeOrder(0, elevio.BT_Cab, 2)
+
+	<-events.AssertUntil("cab_order_confirm", func(es []events.ElevatorState) bool {
+		return es[0].CabLights[3] && es[0].CabLights[2]
+	}, time.Second*1)
+	time.Sleep(500 * time.Millisecond)
+
+	studentprogram.KillProgram(0)
+
+	time.Sleep(4 * time.Second)
+	studentprogram.StartProgram(0)
+
+	<-events.AssertUntil("cab_orders_restored", func(es []events.ElevatorState) bool {
+		return es[0].CabLights[2] && es[0].CabLights[3]
+	}, time.Second*10)
+
+	done := make(chan bool)
+	go processCabOrder(0, 2, done)
+	go processCabOrder(0, 3, done)
+	processed := 0
+
+Wait_For_Processed:
+	for {
+		select {
+		case <-done:
+			processed += 1
+			if processed == 2 {
+				break Wait_For_Processed
+			}
+		}
+	}
 }

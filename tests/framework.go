@@ -1,19 +1,20 @@
 package tests
 
 import (
-	"autofat/events"
 	"autofat/fatelevator"
 )
 
 type Test struct {
+	Id            string
 	InitialParams []fatelevator.InitializationParams
 	Func          func()
 	ChanResult    chan bool
 	Result        bool
 }
 
-func CreateTest(testFunc func(), initParams []fatelevator.InitializationParams) Test {
+func CreateTest(id string, testFunc func(), initParams []fatelevator.InitializationParams) Test {
 	return Test{
+		Id:            id,
 		Func:          testFunc,
 		ChanResult:    make(chan bool),
 		Result:        false,
@@ -23,7 +24,6 @@ func CreateTest(testFunc func(), initParams []fatelevator.InitializationParams) 
 
 func (test *Test) Run(simulators []fatelevator.SimulatedElevator) bool {
 	go func() {
-		events.EventListener(simulators, test.ChanResult)
 		test.Func()
 		test.ChanResult <- true
 	}()

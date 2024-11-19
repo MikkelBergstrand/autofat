@@ -25,6 +25,12 @@ func AddProcess(i int) {
 }
 
 // Make process no longer managed (because it died on its own, hopefully.)
+func KillProcess(i int) {
+	cleanupProcess(i)
+	DeleteProcess(i)
+}
+
+// Make process no longer managed (because it died on its own, hopefully.)
 func DeleteProcess(i int) {
 	fmt.Println("Process ", i, " is no longer managed")
 	delete(_map, i)

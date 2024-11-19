@@ -7,40 +7,62 @@ import (
 	"time"
 )
 
-var _safetyAsserts []SafetyAssert
-var _untilAsserts []WaitFor
+var _safetyAsserts map[string]SafetyAssert
+var _untilAsserts map[string]WaitFor
 
 var _simulatedElevators []fatelevator.SimulatedElevator
 var _elevatorStates []ElevatorState
+var _testId string
+var _active bool
 
 var _chan_SafetyFailure chan<- bool
 var _chan_Kill chan bool
+var _pollAgain chan TriggerMessage
+var _untilTimeoutHandler chan EventMetadata
 
 func AssertSafety(id string, fn TestConditionFunction, timeAllowed time.Duration) {
-	_safetyAsserts = append(_safetyAsserts, SafetyAssert{
+	_safetyAsserts[id] = SafetyAssert{
 		Condition:   fn,
 		AllowedTime: timeAllowed,
 		C:           _chan_SafetyFailure,
 		assert:      0,
-	})
+	}
+	_pollAgain <- TriggerMessage{
+		Type:   TRIGGER_SAFETYASSERT,
+		Params: _safetyAsserts[id],
+	}
 }
 
 func AssertUntil(id string, fn TestConditionFunction, timeout time.Duration) chan bool {
 	chan_done := make(chan bool)
 
 	wait_for := WaitFor{
-		ID:          id,
-		Condition:   fn,
-		Timeout:     timeout,
-		C:           chan_done,
-		Chan_Result: _chan_SafetyFailure,
+		Data: EventMetadata{
+			Id:     id,
+			TestId: _testId,
+		},
+		Condition:    fn,
+		Timeout:      timeout,
+		Chan_OK:      chan_done,
+		Chan_Timeout: _untilTimeoutHandler,
 	}
 
-	_untilAsserts = append(_untilAsserts, wait_for)
+	//Check if immediately true
+	if wait_for.Condition(_elevatorStates) {
+		//Bit hacky.
+		go func() {
+			chan_done <- true
+		}()
 
-	go _untilAsserts[len(_untilAsserts)-1].Watchdog()
+		fmt.Println("AssertUntil: ", id, "true upon added to system.")
+		return chan_done
+	}
+
+	go AwaitWatchdog(id)
 
 	fmt.Println("AssertUntil: ", id, "Added to system")
+	_untilAsserts[id] = wait_for
+
 	return chan_done
 }
 
@@ -49,39 +71,72 @@ func AssertUntil(id string, fn TestConditionFunction, timeout time.Duration) cha
 func pollEvents(triggerType Trigger, triggerParams interface{}) {
 	fmt.Println("Polling events of type", triggerType, "params: ", triggerParams, "u: ", len(_untilAsserts))
 	for i := range _safetyAsserts {
-		event := &_safetyAsserts[i]
+		event := _safetyAsserts[i]
 		if event.IsAsserted() && event.Condition(_elevatorStates) {
-			event.Abort()
+			_safetyAsserts[i] = event.Abort()
 		} else if !event.Condition(_elevatorStates) {
-			event.Assert()
+			_safetyAsserts[i] = event.Assert()
 		}
 	}
 
 	for i := range _untilAsserts {
 		if _untilAsserts[i].Condition(_elevatorStates) {
-			_untilAsserts[i].Trigger()
-			_untilAsserts = append(_untilAsserts[:i], _untilAsserts[i+1:]...)
+			_untilAsserts[i] = _untilAsserts[i].Trigger()
+			delete(_untilAsserts, i)
 		}
 	}
 }
 
+func Init() {
+	_pollAgain = make(chan TriggerMessage)
+
+	go func() {
+		for {
+			select {
+			case trigger := <-_pollAgain:
+				pollEvents(trigger.Type, trigger.Params)
+			}
+		}
+	}()
+}
+
 func EventListener(
+	testId string,
 	simulatedElevators []fatelevator.SimulatedElevator,
 	chan_SafetyFailure chan<- bool) {
 	//Initialize bindings between event listeners, and setup our perspective of the elevator states.
 	_simulatedElevators = simulatedElevators
 	_chan_SafetyFailure = chan_SafetyFailure
 	_chan_Kill = make(chan bool)
+	_testId = testId
+	_active = true
+	_untilTimeoutHandler = make(chan EventMetadata)
 
 	_elevatorStates = make([]ElevatorState, 0)
-	_safetyAsserts = make([]SafetyAssert, 0)
-	_untilAsserts = make([]WaitFor, 0)
+	_safetyAsserts = make(map[string]SafetyAssert)
+	_untilAsserts = make(map[string]WaitFor)
 
 	//First time init
 	for i := range _simulatedElevators {
 		_elevatorStates = append(_elevatorStates, InitElevatorState(elevio.N_FLOORS))
 		go listenToElevators(i, &_simulatedElevators[i])
 	}
+
+	//Handle timeouts of Until events
+	//We should only handle it once, so subsequent timeout events will be ignored.
+	//Furthermore, we ignore timeouts set by past tests by checking the test Id.
+	go func() {
+		firedOnce := false
+		for {
+			select {
+			case event := <-_untilTimeoutHandler:
+				if !firedOnce && _testId == event.TestId {
+					firedOnce = true
+					_chan_SafetyFailure <- true
+				}
+			}
+		}
+	}()
 }
 
 func MakeOrder(elevator int, orderType elevio.ButtonType, floor int) {
@@ -105,22 +160,26 @@ func listenToElevators(elevatorId int, simulatedElevator *fatelevator.SimulatedE
 			}
 		case new_floor := <-simulatedElevator.Chan_FloorSensor:
 			_elevatorStates[elevatorId].Floor = new_floor
-			pollEvents(TRIGGER_ARRIVE_FLOOR, Floor{
-				Floor:    new_floor,
-				Elevator: elevatorId,
-			})
+			_pollAgain <- TriggerMessage{
+				Type: TRIGGER_ARRIVE_FLOOR,
+				Params: Floor{
+					Floor:    new_floor,
+					Elevator: elevatorId,
+				},
+			}
 		case new_floor_light := <-simulatedElevator.Chan_FloorLight:
 			_elevatorStates[elevatorId].FloorLamp = new_floor_light
-			pollEvents(TRIGGER_FLOOR_LIGHT, Floor{
-				Floor:    new_floor_light,
-				Elevator: elevatorId,
-			})
+			_pollAgain <- TriggerMessage{
+				Type: TRIGGER_FLOOR_LIGHT,
+				Params: Floor{
+					Floor:    new_floor_light,
+					Elevator: elevatorId,
+				}}
 		case door_state := <-simulatedElevator.Chan_Door:
 			_elevatorStates[elevatorId].DoorOpen = door_state
-			if door_state {
-				pollEvents(TRIGGER_DOOR_OPEN, nil)
-			} else {
-				pollEvents(TRIGGER_DOOR_CLOSE, nil)
+			_pollAgain <- TriggerMessage{
+				Type:   TRIGGER_DOOR,
+				Params: door_state,
 			}
 		case order_light := <-simulatedElevator.Chan_OrderLights:
 			switch order_light.Button {
@@ -131,24 +190,32 @@ func listenToElevators(elevatorId int, simulatedElevator *fatelevator.SimulatedE
 			case elevio.BT_HallUp:
 				_elevatorStates[elevatorId].HallDownLights[order_light.Floor] = order_light.Value
 			}
-			pollEvents(TRIGGER_ORDER_LIGHT, order_light)
+			_pollAgain <- TriggerMessage{
+				Type:   TRIGGER_ORDER_LIGHT,
+				Params: order_light,
+			}
 		case obstruction := <-simulatedElevator.Chan_Obstruction:
-			{
-				_elevatorStates[elevatorId].Obstruction = obstruction
-				pollEvents(TRIGGER_OBSTRUCTION, obstruction)
+			_elevatorStates[elevatorId].Obstruction = obstruction
+			_pollAgain <- TriggerMessage{
+				Type:   TRIGGER_OBSTRUCTION,
+				Params: obstruction,
 			}
 		case <-simulatedElevator.Chan_Outofbounds:
 			//Fail instantly when elevator reaches out of bounds
 			fmt.Println("Out of bounds detected for elevator", elevatorId)
 			_chan_SafetyFailure <- false
 		}
-
 	}
 }
 
 func Kill() {
+	_active = false
+	for id, v := range _untilAsserts {
+		_untilAsserts[id] = v.Delete()
+		delete(_untilAsserts, id)
+	}
 	//Send a kill signal for each simulated elevator to kill them all.
-	for _ = range _simulatedElevators {
+	for i := 0; i < len(_simulatedElevators); i++ {
 		_chan_Kill <- true
 	}
 }
