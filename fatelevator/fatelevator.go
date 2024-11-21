@@ -11,6 +11,7 @@ import (
 )
 
 const LAUNCH_SIMLATOR string = "./SimElevatorServer"
+const NUM_CHANNELS = 7
 
 type InitializationParams struct {
 	InitialFloor  int
@@ -46,15 +47,19 @@ func (instance *SimulatedElevator) Init(config config.ElevatorConfig, params Ini
 
 func (elevator *SimulatedElevator) Run(tmuxPane int) {
 	elevator.io = &elevio.ElevIO{}
-
-
 	fmt.Printf("Launching simulator process, port=%d, fatPort=%d\n", elevator.Config.UserAddrPort.Port(), elevator.Config.FatAddrPort.Port())
-	cmd := exec.Command(LAUNCH_SIMLATOR,
+
+	args := []string{
 		"--port", strconv.Itoa(int(elevator.Config.UserAddrPort.Port())),
 		"--externalPort", strconv.Itoa(int(elevator.Config.FatAddrPort.Port())),
 		"--startFloor", strconv.Itoa(int(elevator.Params.InitialFloor)),
-		"--randomStart", strconv.FormatBool(elevator.Params.BetweenFloors),
-	)
+	}
+	if elevator.Params.BetweenFloors {
+		args = append(args, "--randomStart")
+	}
+
+	cmd := exec.Command(LAUNCH_SIMLATOR, args...)
+
 	tmux.LaunchInPane(cmd, tmux.WINDOW_ELEVATORS, tmuxPane)
 
 	//Wait for process to start, then init the IO interface
@@ -77,13 +82,13 @@ func (elevator *SimulatedElevator) Run(tmuxPane int) {
 			case <-elevator.Chan_Kill:
 				return
 			}
-		} 
+		}
 	}()
 }
 
 func (elevator *SimulatedElevator) Terminate() {
 	//Kill all polling channels.
-	for i := 0; i < 7; i++ {
+	for i := 0; i < NUM_CHANNELS; i++ {
 		elevator.Chan_Kill <- true
 	}
 	elevator.io.Close()
