@@ -7,12 +7,12 @@ import (
 type Test struct {
 	Id            string
 	InitialParams []fatelevator.InitializationParams
-	Func          func()
+	Func          func(chan bool)
 	ChanResult    chan bool
 	Result        bool
 }
 
-func CreateTest(id string, testFunc func(), initParams []fatelevator.InitializationParams) Test {
+func CreateTest(id string, testFunc func(chan bool), initParams []fatelevator.InitializationParams) Test {
 	return Test{
 		Id:            id,
 		Func:          testFunc,
@@ -24,7 +24,7 @@ func CreateTest(id string, testFunc func(), initParams []fatelevator.Initializat
 
 func (test *Test) Run(simulators []fatelevator.SimulatedElevator) bool {
 	go func() {
-		test.Func()
+		test.Func(test.ChanResult)
 		test.ChanResult <- true
 	}()
 

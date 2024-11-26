@@ -12,14 +12,16 @@ type EventType byte
 type TestConditionFunction func([]ElevatorState) bool
 
 type EventMetadata struct {
-	TestId string
-	Id     string
+	Timeout bool
+	TestId  string
+	Id      string
 }
 
 type SafetyAssert struct {
 	Condition   TestConditionFunction
 	AllowedTime time.Duration
 	assert      int
+	internal    chan<- bool
 	C           chan<- bool
 	Data        EventMetadata
 }
@@ -30,6 +32,7 @@ func (w SafetyAssert) IsAsserted() bool {
 
 func (w SafetyAssert) Abort() SafetyAssert {
 	if w.IsAsserted() {
+		fmt.Println("Safety assert ", w.Data, "aborted")
 		w.assert = 0
 	}
 	return w
@@ -45,27 +48,19 @@ func (w SafetyAssert) Assert() SafetyAssert {
 	//we know that that assertion event is what kept the assert alive.
 	w.assert = rand.Int()
 
-	go func() {
-		assert_at_beginning := w.assert
-		timer := time.NewTimer(w.AllowedTime)
-		<-timer.C
-		if w.assert == assert_at_beginning {
-			w.C <- false
-		}
-	}()
-
 	return w
 
 }
 
 type WaitFor struct {
-	Condition    TestConditionFunction
-	Timeout      time.Duration
-	Chan_OK      chan<- bool
-	Chan_Timeout chan<- EventMetadata
-	triggered    bool
-	timer        *time.Timer
-	Data         EventMetadata
+	Condition     TestConditionFunction
+	Timeout       time.Duration
+	chan_internal chan EventMetadata
+	triggered     bool
+	timer         *time.Timer
+	Data          EventMetadata
+	C_Timeout     chan bool
+	C_OK          chan bool
 }
 
 // If what we are waiting for does not happen in the allotted time,
@@ -77,6 +72,7 @@ func AwaitWatchdog(id string) {
 		return
 	}
 
+	fmt.Println(w)
 	w.timer = time.NewTimer(w.Timeout)
 	<-w.timer.C
 
@@ -89,7 +85,8 @@ func AwaitWatchdog(id string) {
 	_untilAsserts[id] = w
 
 	fmt.Println("WaitFor ", w.Data.Id, "Timeout")
-	w.Chan_Timeout <- w.Data
+	w.Data.Timeout = true
+	w.chan_internal <- w.Data
 }
 
 // Trigger the WaitFor by putting out on the channel.
@@ -104,7 +101,8 @@ func (w WaitFor) Trigger() WaitFor {
 		w.timer.Reset(w.Timeout)
 	}
 	w.triggered = true
-	w.Chan_OK <- true
+	w.Data.Timeout = false
+	w.chan_internal <- w.Data
 	return w
 }
 

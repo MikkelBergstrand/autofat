@@ -99,7 +99,7 @@ func (io *ElevIO) PollButtons(receiver chan<- ButtonEvent) {
 					prev[f][b] = v
 				}
 			}
-		case <-io.killChan: 
+		case <-io.killChan:
 			return
 		}
 	}
@@ -224,11 +224,10 @@ func pollInt(receiver chan<- int, done <-chan bool, caller func() int) {
 		select {
 		case <-ticker.C:
 			v := caller()
-			if v != prev {
+			if v != prev && v != -1 {
 				receiver <- v
 			}
 			prev = v
-			break
 		case <-done:
 			return
 		}

@@ -15,7 +15,6 @@ import (
 	"time"
 )
 
-// var LAUNCH_PROGRAM_DIR = "../sanntidsprosjekt/TT"
 var LAUNCH_PROGRAM_DIR = "../sanntidsprosjekt"
 
 type ElevatorInstance struct {
@@ -73,8 +72,8 @@ func main() {
 		InitialFloor:  0,
 		BetweenFloors: true,
 	}})
-	runTest(&test_cab_backup)
 	runTest(&test)
+	runTest(&test_cab_backup)
 	runTest(&test2)
 
 }
@@ -90,7 +89,7 @@ func runTest(test *tests.Test) {
 		simulatedElevators[i].Run(i + 1)
 	}
 
-	events.EventListener(test.Id, simulatedElevators, test.ChanResult)
+	events.EventListener(test.Id, simulatedElevators)
 
 	time.Sleep(500 * time.Millisecond)
 	studentprogram.InitalizeFromConfig(LAUNCH_PROGRAM_DIR, _elevatorConfigs, test.NumElevators())

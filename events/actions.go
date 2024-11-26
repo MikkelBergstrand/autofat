@@ -15,55 +15,71 @@ var _elevatorStates []ElevatorState
 var _testId string
 var _active bool
 
-var _chan_SafetyFailure chan<- bool
 var _chan_Kill chan bool
 var _pollAgain chan TriggerMessage
-var _untilTimeoutHandler chan EventMetadata
 
-func AssertSafety(id string, fn TestConditionFunction, timeAllowed time.Duration) {
+func AssertSafety(id string, fn TestConditionFunction, timeAllowed time.Duration, output chan bool) {
 	_safetyAsserts[id] = SafetyAssert{
 		Condition:   fn,
 		AllowedTime: timeAllowed,
-		C:           _chan_SafetyFailure,
 		assert:      0,
+		Data: EventMetadata{
+			Id:     id,
+			TestId: _testId,
+		},
 	}
-	_pollAgain <- TriggerMessage{
-		Type:   TRIGGER_SAFETYASSERT,
-		Params: _safetyAsserts[id],
-	}
+
 }
 
-func AssertUntil(id string, fn TestConditionFunction, timeout time.Duration) chan bool {
-	chan_done := make(chan bool)
-
+func AssertUntil(id string, fn TestConditionFunction, timeout time.Duration) (chan bool, chan bool) {
 	wait_for := WaitFor{
 		Data: EventMetadata{
 			Id:     id,
 			TestId: _testId,
 		},
-		Condition:    fn,
-		Timeout:      timeout,
-		Chan_OK:      chan_done,
-		Chan_Timeout: _untilTimeoutHandler,
+		Condition:     fn,
+		Timeout:       timeout,
+		chan_internal: make(chan EventMetadata),
+		C_OK:          make(chan bool),
+		C_Timeout:     make(chan bool),
 	}
 
 	//Check if immediately true
 	if wait_for.Condition(_elevatorStates) {
-		//Bit hacky.
 		go func() {
-			chan_done <- true
+			wait_for.C_OK <- true
 		}()
-
 		fmt.Println("AssertUntil: ", id, "true upon added to system.")
-		return chan_done
+		return wait_for.C_OK, wait_for.C_Timeout
 	}
 
+
+	_untilAsserts[id] = wait_for
 	go AwaitWatchdog(id)
 
 	fmt.Println("AssertUntil: ", id, "Added to system")
-	_untilAsserts[id] = wait_for
 
-	return chan_done
+	go func() bool {
+		triggered := false
+		for {
+			select {
+			case data := <-wait_for.chan_internal:
+				fmt.Println("Await event was heard from: ", data)
+				if !triggered && _active && _testId == data.TestId {
+					triggered = true
+					if data.Timeout {
+						wait_for.C_Timeout <- true
+					} else {
+						wait_for.C_OK <- true
+					}
+				} else {
+					fmt.Println("Subsequent Await event: ", data, " was ignored. It is not active.")
+				}
+			}
+		}
+	}()
+
+	return wait_for.C_OK, wait_for.C_Timeout
 }
 
 // On the arrival of a new trigger, check the loaded events and see if
@@ -71,11 +87,20 @@ func AssertUntil(id string, fn TestConditionFunction, timeout time.Duration) cha
 func pollEvents(triggerType Trigger, triggerParams interface{}) {
 	fmt.Println("Polling events of type", triggerType, "params: ", triggerParams, "u: ", len(_untilAsserts))
 	for i := range _safetyAsserts {
-		event := _safetyAsserts[i]
-		if event.IsAsserted() && event.Condition(_elevatorStates) {
-			_safetyAsserts[i] = event.Abort()
-		} else if !event.Condition(_elevatorStates) {
-			_safetyAsserts[i] = event.Assert()
+		if _safetyAsserts[i].IsAsserted() && _safetyAsserts[i].Condition(_elevatorStates) {
+			_safetyAsserts[i] = _safetyAsserts[i].Abort()
+		} else if !_safetyAsserts[i].Condition(_elevatorStates) {
+			_safetyAsserts[i] = _safetyAsserts[i].Assert()
+
+			go func() {
+				assert_at_beginning := _safetyAsserts[i].assert
+				timer := time.NewTimer(_safetyAsserts[i].AllowedTime)
+				<-timer.C
+				if _safetyAsserts[i].assert == assert_at_beginning {
+					fmt.Println("Safety assert ", _safetyAsserts[i].Data, "failed!")
+					_safetyAsserts[i].C <- false
+				}
+			}()
 		}
 	}
 
@@ -103,14 +128,12 @@ func Init() {
 func EventListener(
 	testId string,
 	simulatedElevators []fatelevator.SimulatedElevator,
-	chan_SafetyFailure chan<- bool) {
+) {
 	//Initialize bindings between event listeners, and setup our perspective of the elevator states.
 	_simulatedElevators = simulatedElevators
-	_chan_SafetyFailure = chan_SafetyFailure
 	_chan_Kill = make(chan bool)
 	_testId = testId
 	_active = true
-	_untilTimeoutHandler = make(chan EventMetadata)
 
 	_elevatorStates = make([]ElevatorState, 0)
 	_safetyAsserts = make(map[string]SafetyAssert)
@@ -121,22 +144,6 @@ func EventListener(
 		_elevatorStates = append(_elevatorStates, InitElevatorState(elevio.N_FLOORS))
 		go listenToElevators(i, &_simulatedElevators[i])
 	}
-
-	//Handle timeouts of Until events
-	//We should only handle it once, so subsequent timeout events will be ignored.
-	//Furthermore, we ignore timeouts set by past tests by checking the test Id.
-	go func() {
-		firedOnce := false
-		for {
-			select {
-			case event := <-_untilTimeoutHandler:
-				if !firedOnce && _testId == event.TestId {
-					firedOnce = true
-					_chan_SafetyFailure <- true
-				}
-			}
-		}
-	}()
 }
 
 func MakeOrder(elevator int, orderType elevio.ButtonType, floor int) {
@@ -203,7 +210,6 @@ func listenToElevators(elevatorId int, simulatedElevator *fatelevator.SimulatedE
 		case <-simulatedElevator.Chan_Outofbounds:
 			//Fail instantly when elevator reaches out of bounds
 			fmt.Println("Out of bounds detected for elevator", elevatorId)
-			_chan_SafetyFailure <- false
 		}
 	}
 }
