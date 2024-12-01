@@ -96,11 +96,11 @@ func awaitOneMovingElevator(elevatorsOnline []int) (int, error) {
 	return ret_val, err
 }
 
-// Wait for a cab order to be processed. By processed we mean:
+// Wait for an order to be processed. By processed we mean:
 // 1) elevator stops at said floor and opens the doors
-// 2) the cab light is shut.
+// 2) the light is shut.
 // 3) The doors close again.
-func processCabOrder(elevator int, floor int) func() error {
+func processOrder(elevator int, btn elevio.ButtonType, floor int) func() error {
 	return func() error {
 		err := events.Await(fmt.Sprintf("process_order_%d_%d_open_door", elevator, floor), func(es []events.ElevatorState) bool {
 			return es[elevator].DoorOpen && es[elevator].Floor == floor && es[elevator].Direction == elevio.MD_Stop
@@ -109,7 +109,7 @@ func processCabOrder(elevator int, floor int) func() error {
 			return err
 		}
 		err = events.Await(fmt.Sprintf("process_order_%d_%d_shut_light", elevator, floor), func(es []events.ElevatorState) bool {
-			return !es[elevator].CabLights[floor]
+			return !es[elevator].OrderLight(btn, floor)
 		}, time.Second*30)
 		if err != nil {
 			return err

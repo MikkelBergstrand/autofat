@@ -72,6 +72,15 @@ func main() {
 		InitialFloor:  0,
 		BetweenFloors: true,
 	}})
+	engine_fail_test := tests.CreateTest("engine_failure", tests.TestEngineOutage, []fatelevator.InitializationParams{{
+		InitialFloor:  0,
+		BetweenFloors: false,
+	}, {
+		InitialFloor:  0,
+		BetweenFloors: false,
+	}})
+
+	runTest(&engine_fail_test)
 	runTest(&test)
 	runTest(&test_cab_backup)
 	runTest(&test2)

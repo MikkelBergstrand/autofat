@@ -165,6 +165,19 @@ type ElevatorState struct {
 	HallDownLights []bool
 }
 
+func (es *ElevatorState) OrderLight(btn elevio.ButtonType, floor int) bool {
+	switch btn {
+	case elevio.BT_HallDown:
+		return es.HallDownLights[floor]
+	case elevio.BT_HallUp:
+		return es.HallUpLights[floor]
+	case elevio.BT_Cab:
+		return es.CabLights[floor]
+	default:
+		panic("Invalid elevio.ButtonType")
+	}
+}
+
 func InitElevatorState(nFloors int) ElevatorState {
 	//Initialize a new ElevatorState object.
 	ret := ElevatorState{

@@ -68,7 +68,7 @@ func TestCabBackup() error {
 		return err
 	}
 
-	err = processCabOrder(0, 2)()
+	err = processOrder(0, elevio.BT_Cab, 2)()
 	if err != nil {
 		return err
 	}
@@ -77,7 +77,7 @@ func TestCabBackup() error {
 		return !((es[0].Floor == 0 || es[0].Floor == 1) && es[0].Direction == elevio.MD_Stop)
 	}, 0)
 
-	err = processCabOrder(0, 3)()
+	err = processOrder(0, elevio.BT_Cab, 3)()
 	if err != nil {
 		return err
 	}
@@ -103,7 +103,12 @@ func TestEngineOutage() error {
 	}
 
 	time.Sleep(1 * time.Second)
-	fatelevator.SetEngineState(moving, false)
+	fatelevator.SetEngineFailureState(moving, true)
+
+	err = processOrder(1, elevio.BT_HallDown, 3)()
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

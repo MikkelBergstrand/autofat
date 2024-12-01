@@ -79,7 +79,7 @@ func Run(id int) {
 
 	cmd := exec.Command(LAUNCH_SIMLATOR, args...)
 
-	tmux.LaunchInPane(cmd, tmux.WINDOW_ELEVATORS, id+1)
+	tmux.LaunchInPane(cmd, tmux.WINDOW_ELEVATORS, id)
 
 	//Wait for process to start, then init the IO interface
 	time.Sleep(1 * time.Second)
@@ -131,7 +131,9 @@ func TerminateAll() {
 	_simulators = make([]SimulatedElevator, 0)
 }
 
-func SetEngineState(id int, state bool) {
+//Set whether or not the engine is working.
+//Note that TRUE means the engine FAILS.
+func SetEngineFailureState(id int, state bool) {
 	_simulators[id].Chan_ToggleEngine <- state
 }
 

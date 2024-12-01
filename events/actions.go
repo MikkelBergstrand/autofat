@@ -171,9 +171,9 @@ func listenToElevators(elevatorId int, simulatedElevator *fatelevator.SimulatedE
 			case elevio.BT_Cab:
 				_elevatorStates[elevatorId].CabLights[order_light.Floor] = order_light.Value
 			case elevio.BT_HallDown:
-				_elevatorStates[elevatorId].HallUpLights[order_light.Floor] = order_light.Value
-			case elevio.BT_HallUp:
 				_elevatorStates[elevatorId].HallDownLights[order_light.Floor] = order_light.Value
+			case elevio.BT_HallUp:
+				_elevatorStates[elevatorId].HallUpLights[order_light.Floor] = order_light.Value
 			}
 			_pollAgain <- TriggerMessage{
 				Type:   TRIGGER_ORDER_LIGHT,
