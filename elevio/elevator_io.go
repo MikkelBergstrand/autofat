@@ -31,11 +31,16 @@ func (io *ElevIO) Init(addr string, numFloors int, killChan <-chan bool) {
 	}
 	io.initialized = true
 	io.killChan = killChan
+	fmt.Println("io initialized for addr", addr)
 }
 
 func (io *ElevIO) Close() {
 	io.initialized = false
 	io.conn.Close()
+}
+
+func (io *ElevIO) SetEngineState(state bool) {
+	io.write([4]byte{15, toByte(state), 0, 0})
 }
 
 func (io *ElevIO) SetMotorDirection(dir MotorDirection) {
@@ -125,6 +130,23 @@ func (io *ElevIO) PollOutofbounds(receiver chan<- bool) {
 	pollBool(receiver, io.killChan, io.GetOutofbounds)
 }
 
+func (io *ElevIO) PollDirection(receiver chan<- MotorDirection) {
+	ticker := time.NewTicker(_pollRate)
+	prev := MD_Stop
+	for {
+		select {
+		case <-ticker.C:
+			v := (MotorDirection)(io.GetDirection())
+			if v != prev {
+				receiver <- v
+			}
+			prev = v
+		case <-io.killChan:
+			return
+		}
+	}
+}
+
 func (io *ElevIO) GetButton(button ButtonType, floor int) bool {
 	a := io.read([4]byte{6, byte(button), byte(floor), 0})
 	return toBool(a[1])
@@ -171,6 +193,11 @@ func (io *ElevIO) GetDoor() bool {
 func (io *ElevIO) GetOutofbounds() bool {
 	a := io.read([4]byte{14, 0, 0, 0})
 	return toBool(a[1])
+}
+
+func (io *ElevIO) GetDirection() byte {
+	a := io.read([4]byte{16, 0, 0, 0})
+	return a[1]
 }
 
 func (io *ElevIO) read(in [4]byte) [4]byte {

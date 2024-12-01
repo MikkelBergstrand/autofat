@@ -11,7 +11,9 @@ import (
 )
 
 const LAUNCH_SIMLATOR string = "./SimElevatorServer"
-const NUM_CHANNELS = 7
+const NUM_CHANNELS = 9
+
+var _simulators []SimulatedElevator
 
 type InitializationParams struct {
 	InitialFloor  int
@@ -29,10 +31,15 @@ type SimulatedElevator struct {
 	Chan_Door          chan bool
 	Chan_Obstruction   chan bool
 	Chan_Outofbounds   chan bool
+	Chan_Direction     chan elevio.MotorDirection
+	Chan_ToggleEngine  chan bool
 	Chan_Kill          chan bool
 }
 
-func (instance *SimulatedElevator) Init(config config.ElevatorConfig, params InitializationParams) {
+func Init(config config.ElevatorConfig, params InitializationParams) {
+	_simulators = append(_simulators, SimulatedElevator{})
+	instance := &_simulators[len(_simulators)-1]
+
 	instance.Chan_FloorSensor = make(chan int)
 	instance.Chan_ButtonPresser = make(chan elevio.ButtonEvent)
 	instance.Chan_OrderLights = make(chan elevio.ButtonEvent)
@@ -41,11 +48,23 @@ func (instance *SimulatedElevator) Init(config config.ElevatorConfig, params Ini
 	instance.Chan_Obstruction = make(chan bool)
 	instance.Chan_Outofbounds = make(chan bool)
 	instance.Chan_Kill = make(chan bool)
+	instance.Chan_Direction = make(chan elevio.MotorDirection)
+	instance.Chan_ToggleEngine = make(chan bool)
 	instance.Config = config
 	instance.Params = params
+
 }
 
-func (elevator *SimulatedElevator) Run(tmuxPane int) {
+func Count() int {
+	return len(_simulators)
+}
+
+func Get(id int) *SimulatedElevator {
+	return &_simulators[id]
+}
+
+func Run(id int) {
+	elevator := &_simulators[id]
 	elevator.io = &elevio.ElevIO{}
 	fmt.Printf("Launching simulator process, port=%d, fatPort=%d\n", elevator.Config.UserAddrPort.Port(), elevator.Config.FatAddrPort.Port())
 
@@ -60,7 +79,7 @@ func (elevator *SimulatedElevator) Run(tmuxPane int) {
 
 	cmd := exec.Command(LAUNCH_SIMLATOR, args...)
 
-	tmux.LaunchInPane(cmd, tmux.WINDOW_ELEVATORS, tmuxPane)
+	tmux.LaunchInPane(cmd, tmux.WINDOW_ELEVATORS, id+1)
 
 	//Wait for process to start, then init the IO interface
 	time.Sleep(1 * time.Second)
@@ -73,6 +92,7 @@ func (elevator *SimulatedElevator) Run(tmuxPane int) {
 	go elevator.io.PollOrderLights(elevator.Chan_OrderLights)
 	go elevator.io.PollObstructionSwitch(elevator.Chan_Obstruction)
 	go elevator.io.PollOutofbounds(elevator.Chan_Outofbounds)
+	go elevator.io.PollDirection(elevator.Chan_Direction)
 
 	go func() {
 		for {
@@ -84,12 +104,40 @@ func (elevator *SimulatedElevator) Run(tmuxPane int) {
 			}
 		}
 	}()
+
+	go func() {
+		for {
+			select {
+			case engine_status := <-elevator.Chan_ToggleEngine:
+				elevator.io.SetEngineState(engine_status)
+			case <-elevator.Chan_Kill:
+				return
+			}
+		}
+	}()
 }
 
-func (elevator *SimulatedElevator) Terminate() {
-	//Kill all polling channels.
-	for i := 0; i < NUM_CHANNELS; i++ {
-		elevator.Chan_Kill <- true
+func TerminateAll() {
+	for id := len(_simulators) - 1; id >= 0; id-- {
+		//Kill all polling channels.
+		for i := 0; i < NUM_CHANNELS; i++ {
+			fmt.Println("Sending kill", i)
+			_simulators[id].Chan_Kill <- true
+		}
+		_simulators[id].io.Close()
 	}
-	elevator.io.Close()
+
+	//Clear the array
+	_simulators = make([]SimulatedElevator, 0)
+}
+
+func SetEngineState(id int, state bool) {
+	_simulators[id].Chan_ToggleEngine <- state
+}
+
+func MakeOrder(id int, btn elevio.ButtonType, floor int) {
+	_simulators[id].Chan_ButtonPresser <- elevio.ButtonEvent{
+		Button: btn,
+		Floor:  floor,
+	}
 }

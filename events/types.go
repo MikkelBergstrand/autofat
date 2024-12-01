@@ -17,7 +17,7 @@ type EventMetadata struct {
 	Id      string
 }
 
-type SafetyAssert struct {
+type AssertObj struct {
 	Condition   TestConditionFunction
 	AllowedTime time.Duration
 	assert      int
@@ -26,11 +26,11 @@ type SafetyAssert struct {
 	Data        EventMetadata
 }
 
-func (w SafetyAssert) IsAsserted() bool {
+func (w AssertObj) IsAsserted() bool {
 	return w.assert > 0
 }
 
-func (w SafetyAssert) Abort() SafetyAssert {
+func (w AssertObj) Abort() AssertObj {
 	if w.IsAsserted() {
 		fmt.Println("Safety assert ", w.Data, "aborted")
 		w.assert = 0
@@ -38,7 +38,7 @@ func (w SafetyAssert) Abort() SafetyAssert {
 	return w
 }
 
-func (w SafetyAssert) Assert() SafetyAssert {
+func (w AssertObj) Assert() AssertObj {
 	if w.IsAsserted() {
 		return w
 	}
@@ -52,7 +52,7 @@ func (w SafetyAssert) Assert() SafetyAssert {
 
 }
 
-type WaitFor struct {
+type AwaitObj struct {
 	Condition     TestConditionFunction
 	Timeout       time.Duration
 	chan_internal chan EventMetadata
@@ -66,7 +66,7 @@ type WaitFor struct {
 // If what we are waiting for does not happen in the allotted time,
 // send something on the failure channel
 func AwaitWatchdog(id string) {
-	w := _untilAsserts[id]
+	w := _awaits[id]
 	//Result is false, we failed (unless we already succeeded).
 	if w.triggered {
 		return
@@ -77,12 +77,12 @@ func AwaitWatchdog(id string) {
 	<-w.timer.C
 
 	//Get updated struct. See if it has triggered or it has been deleted..
-	w, ok := _untilAsserts[id]
+	w, ok := _awaits[id]
 	if !ok {
 		return
 	}
 	w.triggered = true
-	_untilAsserts[id] = w
+	_awaits[id] = w
 
 	fmt.Println("WaitFor ", w.Data.Id, "Timeout")
 	w.Data.Timeout = true
@@ -91,7 +91,7 @@ func AwaitWatchdog(id string) {
 
 // Trigger the WaitFor by putting out on the channel.
 // Channel may only put out once.
-func (w WaitFor) Trigger() WaitFor {
+func (w AwaitObj) Trigger() AwaitObj {
 	if w.triggered {
 		return w
 	}
@@ -106,7 +106,7 @@ func (w WaitFor) Trigger() WaitFor {
 	return w
 }
 
-func (w WaitFor) Delete() WaitFor {
+func (w AwaitObj) Delete() AwaitObj {
 	w.triggered = true
 	return w
 }
@@ -126,6 +126,7 @@ const (
 	TRIGGER_OBSTRUCTION
 	TRIGGER_SAFETYASSERT
 	TRIGGER_UNTILASSERT
+	TRIGGER_DIRECTION
 )
 
 func (t Trigger) String() string {
@@ -135,6 +136,7 @@ func (t Trigger) String() string {
 		TRIGGER_FLOOR_LIGHT:  "FLOOR_LIGHT",
 		TRIGGER_ORDER_LIGHT:  "ORDER_LIGHT",
 		TRIGGER_OBSTRUCTION:  "OBSTRUCTION",
+		TRIGGER_DIRECTION:    "DIRECTION",
 	}
 	return toStr[t]
 }

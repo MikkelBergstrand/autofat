@@ -3,10 +3,23 @@ package elevio
 type MotorDirection int
 
 const (
-	MD_Up   MotorDirection = 1
-	MD_Down MotorDirection = -1
-	MD_Stop MotorDirection = 0
+	MD_Up   MotorDirection = 2
+	MD_Down MotorDirection = 0
+	MD_Stop MotorDirection = 1
 )
+
+func (md MotorDirection) String() string {
+	switch md {
+	case MD_Up:
+		return "UP"
+	case MD_Down:
+		return "DOWN"
+	case MD_Stop:
+		return "STOP"
+	default:
+		return "ERRMD"
+	}
+}
 
 type ButtonType int
 

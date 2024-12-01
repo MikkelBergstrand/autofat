@@ -82,25 +82,21 @@ func runTest(test *tests.Test) {
 	tmux.Cleanup()
 	tmux.Launch()
 
-	var simulatedElevators []fatelevator.SimulatedElevator
 	for i := 0; i < test.NumElevators(); i++ {
-		simulatedElevators = append(simulatedElevators, fatelevator.SimulatedElevator{})
-		simulatedElevators[i].Init(_elevatorConfigs[i], test.InitialParams[i])
-		simulatedElevators[i].Run(i + 1)
+		fatelevator.Init(_elevatorConfigs[i], test.InitialParams[i])
+		fatelevator.Run(i)
 	}
 
-	events.EventListener(test.Id, simulatedElevators)
+	events.EventListener(test.Id)
 
 	time.Sleep(500 * time.Millisecond)
 	studentprogram.InitalizeFromConfig(LAUNCH_PROGRAM_DIR, _elevatorConfigs, test.NumElevators())
 	time.Sleep(1000 * time.Millisecond)
 
-	eval := test.Run(simulatedElevators)
+	eval := test.Run()
 	fmt.Println("Value of test was", eval)
 
 	events.Kill()
-	for i := 0; i < test.NumElevators(); i++ {
-		simulatedElevators[i].Terminate()
-	}
+	fatelevator.TerminateAll()
 	procmanager.KillAll()
 }
