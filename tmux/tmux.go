@@ -13,9 +13,6 @@ const TMUX_SESSION_NAME string = "autofat"
 const WINDOW_ELEVATORS string = "Elevators"
 const WINDOW_PROGRAMS string = "Programs"
 
-func Cleanup() {
-}
-
 func LaunchInPane(ex *exec.Cmd, window string, paneId int) {
 	exec.Command("tmux", "select-window", "-t", window)
 

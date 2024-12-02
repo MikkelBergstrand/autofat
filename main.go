@@ -91,7 +91,6 @@ func main() {
 }
 
 func runTest(test *tests.Test) {
-	tmux.Cleanup()
 	tmux.Launch()
 
 	for i := 0; i < test.NumElevators(); i++ {
