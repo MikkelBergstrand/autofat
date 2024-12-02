@@ -118,7 +118,9 @@ func KillProgram(elevatorId int) {
 
 func KillAll() {
 	for i := range _studentPrograms {
+		fmt.Println("Killing student", i)
 		KillProgram(i)
+		fmt.Println("Killed")
 	}
 }
 

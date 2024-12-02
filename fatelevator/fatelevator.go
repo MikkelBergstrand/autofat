@@ -14,6 +14,7 @@ const LAUNCH_SIMLATOR string = "./SimElevatorServer"
 const NUM_CHANNELS = 9
 
 var _simulators []SimulatedElevator
+var _chan_Terminated chan bool = make(chan bool)
 
 type InitializationParams struct {
 	InitialFloor  int
@@ -119,13 +120,24 @@ func Run(id int) {
 
 func TerminateAll() {
 	for id := len(_simulators) - 1; id >= 0; id-- {
-		//Kill all polling channels.
-		for i := 0; i < NUM_CHANNELS; i++ {
-			_simulators[id].Chan_Kill <- true
-		}
-		_simulators[id].io.Close()
+		go func() {
+			//Kill all polling channels.
+			for i := 0; i < NUM_CHANNELS; i++ {
+				_simulators[id].Chan_Kill <- true
+			}
+			_simulators[id].io.Close()
+			_chan_Terminated <- true
+		}()
 	}
 
+	terminate_count := 0
+	for {
+		<-_chan_Terminated
+		terminate_count++
+		if terminate_count == len(_simulators) {
+			break
+		}
+	}
 	//Clear the array
 	_simulators = make([]SimulatedElevator, 0)
 }

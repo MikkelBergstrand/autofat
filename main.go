@@ -82,7 +82,17 @@ func main() {
 		InitialFloor:  0,
 		BetweenFloors: false,
 	}}, 0)
+	hall_clear_one_test := tests.CreateTest("hall_clear_one", tests.TestHallClearOne, []fatelevator.InitializationParams{{
+		InitialFloor:  0,
+		BetweenFloors: false,
+	}}, 0)
+	door_timer_test := tests.CreateTest("door_timer", tests.TestDoorOpenTime, []fatelevator.InitializationParams{{
+		InitialFloor:  0,
+		BetweenFloors: false,
+	}}, 0)
 
+	runTest(&door_timer_test)
+	runTest(&hall_clear_one_test)
 	runTest(&test2)
 	runTest(&engine_fail_test)
 	runTest(&test)
@@ -107,7 +117,7 @@ func runTest(test *tests.Test) {
 	eval := test.Run()
 	fmt.Println("Value of test was", eval)
 
-	events.Kill()
 	fatelevator.TerminateAll()
+	events.Kill()
 	studentprogram.KillAll()
 }

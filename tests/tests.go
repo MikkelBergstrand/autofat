@@ -112,3 +112,70 @@ func TestEngineOutage() error {
 
 	return nil
 }
+
+// Test that the door is opening for 2-4 seconds, then closing, on floor arrival
+func TestDoorOpenTime() error {
+	err := waitForInit()
+	if err != nil {
+		return err
+	}
+
+	fatelevator.MakeOrder(0, elevio.BT_Cab, 2)
+	err = events.Await("floor_arrival", func(es []events.ElevatorState) bool { return es[0].Floor == 2 }, 15*time.Second)
+	if err != nil {
+		return err
+	}
+
+	err = events.Await("door_open", func(es []events.ElevatorState) bool { return es[0].DoorOpen }, 1*time.Second)
+	if err != nil {
+		return err
+	}
+
+	events.Assert("keep_door_open", func(es []events.ElevatorState) bool { return es[0].DoorOpen }, 0)
+	time.Sleep(1 * time.Second) //Not the full three seconds, so we have some leeway
+	events.Disassert("keep_door_open")
+
+	err = events.Await("door_close", func(es []events.ElevatorState) bool { return !es[0].DoorOpen }, 2*time.Second)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Test that when multiple hall lights are asserted at a floor, only one
+// is cleared at a time.
+func TestHallClearOne() error {
+	err := waitForInit()
+	if err != nil {
+		return err
+	}
+
+	events.Assert("dont_reach_dest_prematurely", func(es []events.ElevatorState) bool { return es[0].Floor != 2 }, 0)
+	err = makeHallOrder(0, elevio.BT_HallDown, 2, []int{0})
+	if err != nil {
+		return err
+	}
+	time.Sleep(500 * time.Millisecond)
+	err = makeHallOrder(0, elevio.BT_HallUp, 2, []int{0})
+	if err != nil {
+		return err
+	}
+	events.Disassert("dont_reach_dest_prematurely")
+
+	//Direction UP should be cleared first, as this is the reference direction.
+	events.Assert("dont_clear_halldown_first", func(es []events.ElevatorState) bool { return es[0].HallDownLights[2] }, 500*time.Millisecond)
+	err = events.Await("clear_hallup", func(es []events.ElevatorState) bool { return !es[0].HallUpLights[2] }, 15*time.Second)
+	if err != nil {
+		return err
+	}
+	//Now, halldown should still not be cleared instantly. We wait at least 2 seconds (3 seconds is the time it _should_ take)
+	time.Sleep(2 * time.Second)
+	events.Disassert("dont_clear_halldown_first")
+	err = events.Await("clear_halldown", func(es []events.ElevatorState) bool { return !es[0].HallDownLights[2] }, 5*time.Second)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

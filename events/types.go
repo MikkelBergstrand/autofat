@@ -22,7 +22,6 @@ type AssertObj struct {
 	Condition   TestConditionFunction
 	AllowedTime time.Duration
 	assert      int
-	internal    chan<- bool
 	C           chan<- bool
 	Data        EventMetadata
 }
@@ -60,8 +59,6 @@ type AwaitObj struct {
 	triggered     bool
 	timer         *time.Timer
 	Data          EventMetadata
-	C_Timeout     chan bool
-	C_OK          chan bool
 }
 
 // If what we are waiting for does not happen in the allotted time,
@@ -73,7 +70,6 @@ func AwaitWatchdog(id string) {
 		return
 	}
 
-	fmt.Println(w)
 	w.timer = time.NewTimer(w.Timeout)
 	<-w.timer.C
 
@@ -85,19 +81,19 @@ func AwaitWatchdog(id string) {
 	w.triggered = true
 	_awaits[id] = w
 
-	fmt.Println("WaitFor ", w.Data.Id, "Timeout")
+	fmt.Println("Await ", w.Data.Id, "Timeout")
 	w.Data.Timeout = true
 	w.chan_internal <- w.Data
 }
 
-// Trigger the WaitFor by putting out on the channel.
+// Trigger the Await by putting out on the channel.
 // Channel may only put out once.
 func (w AwaitObj) Trigger() AwaitObj {
 	if w.triggered {
 		return w
 	}
 
-	fmt.Println("WaitFor ", w.Data.Id, "Trigger")
+	fmt.Println("Await ", w.Data.Id, "Trigger")
 	if w.timer != nil {
 		w.timer.Reset(w.Timeout)
 	}
@@ -109,6 +105,7 @@ func (w AwaitObj) Trigger() AwaitObj {
 
 func (w AwaitObj) Delete() AwaitObj {
 	w.triggered = true
+	fmt.Println("Deleting await", w.Data)
 	return w
 }
 

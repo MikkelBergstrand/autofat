@@ -15,6 +15,7 @@ var _elevatorStates []ElevatorState
 var _testId string
 
 var _chan_Kill chan bool
+var _chan_Terminated chan bool
 var _pollAgain chan TriggerMessage
 
 func Assert(id string, fn TestConditionFunction, timeAllowed time.Duration) {
@@ -46,17 +47,14 @@ func Await(id string, fn TestConditionFunction, timeout time.Duration) error {
 
 	//Check if immediately true
 	if wait_for.Condition(_elevatorStates) {
-		go func() {
-			wait_for.C_OK <- true
-		}()
-		fmt.Println("AssertUntil: ", id, "true upon added to system.")
+		fmt.Println("Await: ", id, "true upon added to system.")
 		return nil
 	}
 
 	_awaits[id] = wait_for
 	go AwaitWatchdog(id)
 
-	fmt.Println("AssertUntil: ", id, "Added to system")
+	fmt.Println("Await: ", id, "Added to system")
 
 	data := <-wait_for.chan_internal
 	fmt.Println("Await event was heard from: ", data)
@@ -121,6 +119,7 @@ func EventListener(
 	testId string,
 ) {
 	_chan_Kill = make(chan bool)
+	_chan_Terminated = make(chan bool)
 	_testId = testId
 
 	_elevatorStates = make([]ElevatorState, 0)
@@ -142,6 +141,7 @@ func listenToElevators(elevatorId int, simulatedElevator *fatelevator.SimulatedE
 		case <-_chan_Kill:
 			{
 				fmt.Println("Killed elevator listener ", elevatorId)
+				_chan_Terminated <- true
 				return
 			}
 		case new_floor := <-simulatedElevator.Chan_FloorSensor:
@@ -196,7 +196,7 @@ func listenToElevators(elevatorId int, simulatedElevator *fatelevator.SimulatedE
 			//Fail instantly when elevator reaches out of bounds
 			_elevatorStates[elevatorId].Outofbounds = true
 			_pollAgain <- TriggerMessage{
-				Type: TRIGGER_OOB,
+				Type:   TRIGGER_OOB,
 				Params: elevatorId,
 			}
 		case <-studentProgram.Chan_Crash:
@@ -207,6 +207,7 @@ func listenToElevators(elevatorId int, simulatedElevator *fatelevator.SimulatedE
 			}
 		}
 	}
+
 }
 
 func Kill() {
@@ -218,4 +219,5 @@ func Kill() {
 		_awaits[id] = v.Delete()
 		delete(_awaits, id)
 	}
+	<-_chan_Terminated
 }
