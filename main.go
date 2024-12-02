@@ -4,6 +4,7 @@ import (
 	"autofat/config"
 	"autofat/events"
 	"autofat/fatelevator"
+	"autofat/network"
 	"autofat/procmanager"
 	"autofat/studentprogram"
 	"autofat/tests"
@@ -56,29 +57,31 @@ func main() {
 		})
 	}
 
+	network.Init(LAUNCH_PROGRAM_DIR, _elevatorConfigs)
+
 	test_cab_backup := tests.CreateTest("cab_backup", tests.TestCabBackup, []fatelevator.InitializationParams{{
 		InitialFloor:  0,
 		BetweenFloors: false,
 	}, {
 		InitialFloor:  1,
 		BetweenFloors: false,
-	}})
+	}}, 0)
 
 	test := tests.CreateTest("floor_lamp", tests.TestFloorLamp, []fatelevator.InitializationParams{{
 		InitialFloor:  0,
 		BetweenFloors: false,
-	}})
+	}}, 0)
 	test2 := tests.CreateTest("init_between_floors", tests.TestInitBetweenFloors, []fatelevator.InitializationParams{{
 		InitialFloor:  0,
 		BetweenFloors: true,
-	}})
+	}}, 0)
 	engine_fail_test := tests.CreateTest("engine_failure", tests.TestEngineOutage, []fatelevator.InitializationParams{{
 		InitialFloor:  0,
 		BetweenFloors: false,
 	}, {
 		InitialFloor:  0,
 		BetweenFloors: false,
-	}})
+	}}, 0)
 
 	runTest(&engine_fail_test)
 	runTest(&test)
