@@ -83,10 +83,10 @@ func main() {
 		BetweenFloors: false,
 	}}, 0)
 
+	runTest(&test2)
 	runTest(&engine_fail_test)
 	runTest(&test)
 	runTest(&test_cab_backup)
-	runTest(&test2)
 
 }
 
@@ -98,16 +98,16 @@ func runTest(test *tests.Test) {
 		fatelevator.Run(i)
 	}
 
-	events.EventListener(test.Id)
-
 	time.Sleep(500 * time.Millisecond)
 	studentprogram.InitalizeFromConfig(LAUNCH_PROGRAM_DIR, _elevatorConfigs, test.NumElevators())
 	time.Sleep(1000 * time.Millisecond)
+
+	events.EventListener(test.Id)
 
 	eval := test.Run()
 	fmt.Println("Value of test was", eval)
 
 	events.Kill()
 	fatelevator.TerminateAll()
-	procmanager.KillAll()
+	studentprogram.KillAll()
 }

@@ -2,6 +2,7 @@ package events
 
 import (
 	"autofat/elevio"
+	"autofat/studentprogram"
 	"fmt"
 	"math/rand/v2"
 	"time"
@@ -127,6 +128,8 @@ const (
 	TRIGGER_SAFETYASSERT
 	TRIGGER_UNTILASSERT
 	TRIGGER_DIRECTION
+	TRIGGER_CRASH
+	TRIGGER_OOB
 )
 
 func (t Trigger) String() string {
@@ -137,6 +140,8 @@ func (t Trigger) String() string {
 		TRIGGER_ORDER_LIGHT:  "ORDER_LIGHT",
 		TRIGGER_OBSTRUCTION:  "OBSTRUCTION",
 		TRIGGER_DIRECTION:    "DIRECTION",
+		TRIGGER_CRASH:        "CRASH",
+		TRIGGER_OOB:          "OOB",
 	}
 	return toStr[t]
 }
@@ -154,11 +159,13 @@ type Button struct {
 }
 
 type ElevatorState struct {
+	Status      studentprogram.ProgramStatus
 	FloorLamp   int
 	Floor       int
 	Direction   elevio.MotorDirection
 	DoorOpen    bool
 	Obstruction bool
+	Outofbounds bool
 
 	CabLights      []bool
 	HallUpLights   []bool
@@ -186,6 +193,8 @@ func InitElevatorState(nFloors int) ElevatorState {
 		Direction:   elevio.MD_Stop,
 		DoorOpen:    false,
 		Obstruction: false,
+		Status:      studentprogram.RUNNING,
+		Outofbounds: false,
 	}
 
 	ret.CabLights = make([]bool, nFloors)

@@ -113,8 +113,6 @@ func loadPortsFromFile(dir string) ([]Port, error) {
 			return nil, fmt.Errorf("could not parse port info '%s'", line)
 		}
 
-		fmt.Println(matches)
-
 		porti, err := strconv.Atoi(matches[0][2])
 		if err != nil {
 			return nil, err

@@ -121,7 +121,6 @@ func TerminateAll() {
 	for id := len(_simulators) - 1; id >= 0; id-- {
 		//Kill all polling channels.
 		for i := 0; i < NUM_CHANNELS; i++ {
-			fmt.Println("Sending kill", i)
 			_simulators[id].Chan_Kill <- true
 		}
 		_simulators[id].io.Close()
@@ -131,8 +130,8 @@ func TerminateAll() {
 	_simulators = make([]SimulatedElevator, 0)
 }
 
-//Set whether or not the engine is working.
-//Note that TRUE means the engine FAILS.
+// Set whether or not the engine is working.
+// Note that TRUE means the engine FAILS.
 func SetEngineFailureState(id int, state bool) {
 	_simulators[id].Chan_ToggleEngine <- state
 }

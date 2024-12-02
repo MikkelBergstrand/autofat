@@ -3,6 +3,7 @@ package events
 import (
 	"autofat/elevio"
 	"autofat/fatelevator"
+	"autofat/studentprogram"
 	"fmt"
 	"time"
 )
@@ -129,11 +130,11 @@ func EventListener(
 	//First time init
 	for i := range fatelevator.Count() {
 		_elevatorStates = append(_elevatorStates, InitElevatorState(elevio.N_FLOORS))
-		go listenToElevators(i, fatelevator.Get(i))
+		go listenToElevators(i, fatelevator.Get(i), studentprogram.Get(i))
 	}
 }
 
-func listenToElevators(elevatorId int, simulatedElevator *fatelevator.SimulatedElevator) {
+func listenToElevators(elevatorId int, simulatedElevator *fatelevator.SimulatedElevator, studentProgram studentprogram.StudentProgram) {
 	//Process signals from simulated elevators.
 	//In response, poll active events for triggers, and update the local state.
 	for {
@@ -193,7 +194,17 @@ func listenToElevators(elevatorId int, simulatedElevator *fatelevator.SimulatedE
 			}
 		case <-simulatedElevator.Chan_Outofbounds:
 			//Fail instantly when elevator reaches out of bounds
-			fmt.Println("Out of bounds detected for elevator", elevatorId)
+			_elevatorStates[elevatorId].Outofbounds = true
+			_pollAgain <- TriggerMessage{
+				Type: TRIGGER_OOB,
+				Params: elevatorId,
+			}
+		case <-studentProgram.Chan_Crash:
+			_elevatorStates[elevatorId].Status = studentprogram.CRASHED
+			_pollAgain <- TriggerMessage{
+				Type:   TRIGGER_CRASH,
+				Params: elevatorId,
+			}
 		}
 	}
 }

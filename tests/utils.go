@@ -4,12 +4,17 @@ import (
 	"autofat/elevio"
 	"autofat/events"
 	"autofat/fatelevator"
+	"autofat/studentprogram"
 	"fmt"
 	"time"
 )
 
 // Wait for all elevators to reach a valid floor with their doors closed.
 func waitForInit() error {
+	//Add default assertions
+	events.Assert("program_crash", assertAll(func(e events.ElevatorState) bool { return e.Status != studentprogram.CRASHED}), 0)
+	events.Assert("program_outofbound", assertAll(func(e events.ElevatorState) bool { return !e.Outofbounds }), 0)
+
 	fmt.Println("Wait for initial state")
 	err := events.Await("init", assertAll(func(e events.ElevatorState) bool {
 		return e.Floor != -1 && !e.DoorOpen
