@@ -43,6 +43,10 @@ func (io *ElevIO) SetEngineState(state bool) {
 	io.write([4]byte{15, toByte(state), 0, 0})
 }
 
+func (io *ElevIO) SetObstruction(state bool) {
+	io.write([4]byte{17, toByte(state), 0, 0})
+}
+
 func (io *ElevIO) SetMotorDirection(dir MotorDirection) {
 	io.write([4]byte{1, byte(dir), 0, 0})
 }

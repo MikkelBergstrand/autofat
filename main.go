@@ -91,6 +91,16 @@ func main() {
 		BetweenFloors: false,
 	}}, 0)
 
+	obstruction_open_door_test := tests.CreateTest("obstruction_opens_door", tests.TestObstructionOpenDoor, []fatelevator.InitializationParams{{
+		InitialFloor:  0,
+		BetweenFloors: false,
+	}}, 0)
+
+	obstruction_buffer_order_test := tests.CreateSingleElevatorTest("obstruction_buffer_orders", tests.TestObstructionCompleteOrders)
+
+
+	runTest(&obstruction_buffer_order_test)
+	runTest(&obstruction_open_door_test)
 	runTest(&door_timer_test)
 	runTest(&hall_clear_one_test)
 	runTest(&test2)

@@ -11,7 +11,7 @@ import (
 )
 
 const LAUNCH_SIMLATOR string = "./SimElevatorServer"
-const NUM_CHANNELS = 9
+const NUM_CHANNELS = 10
 
 var _simulators []SimulatedElevator
 var _chan_Terminated chan bool = make(chan bool)
@@ -22,19 +22,20 @@ type InitializationParams struct {
 }
 
 type SimulatedElevator struct {
-	Params             InitializationParams
-	io                 *elevio.ElevIO
-	Config             config.ElevatorConfig
-	Chan_FloorSensor   chan int
-	Chan_ButtonPresser chan elevio.ButtonEvent
-	Chan_OrderLights   chan elevio.ButtonEvent
-	Chan_FloorLight    chan int
-	Chan_Door          chan bool
-	Chan_Obstruction   chan bool
-	Chan_Outofbounds   chan bool
-	Chan_Direction     chan elevio.MotorDirection
-	Chan_ToggleEngine  chan bool
-	Chan_Kill          chan bool
+	Params              InitializationParams
+	io                  *elevio.ElevIO
+	Config              config.ElevatorConfig
+	Chan_FloorSensor    chan int
+	Chan_ButtonPresser  chan elevio.ButtonEvent
+	Chan_OrderLights    chan elevio.ButtonEvent
+	Chan_FloorLight     chan int
+	Chan_Door           chan bool
+	Chan_Obstruction    chan bool
+	Chan_SetObstruction chan bool
+	Chan_Outofbounds    chan bool
+	Chan_Direction      chan elevio.MotorDirection
+	Chan_ToggleEngine   chan bool
+	Chan_Kill           chan bool
 }
 
 func Init(config config.ElevatorConfig, params InitializationParams) {
@@ -47,6 +48,7 @@ func Init(config config.ElevatorConfig, params InitializationParams) {
 	instance.Chan_FloorLight = make(chan int)
 	instance.Chan_Door = make(chan bool)
 	instance.Chan_Obstruction = make(chan bool)
+	instance.Chan_SetObstruction = make(chan bool)
 	instance.Chan_Outofbounds = make(chan bool)
 	instance.Chan_Kill = make(chan bool)
 	instance.Chan_Direction = make(chan elevio.MotorDirection)
@@ -116,6 +118,17 @@ func Run(id int) {
 			}
 		}
 	}()
+
+	go func() {
+		for {
+			select {
+			case obstruction := <-elevator.Chan_SetObstruction:
+				elevator.io.SetObstruction(obstruction)
+			case <-elevator.Chan_Kill:
+				return
+			}
+		}
+	}()
 }
 
 func TerminateAll() {
@@ -130,6 +143,7 @@ func TerminateAll() {
 		}()
 	}
 
+	//Wait for all channels to close.
 	terminate_count := 0
 	for {
 		<-_chan_Terminated
@@ -146,6 +160,10 @@ func TerminateAll() {
 // Note that TRUE means the engine FAILS.
 func SetEngineFailureState(id int, state bool) {
 	_simulators[id].Chan_ToggleEngine <- state
+}
+
+func SetObstruction(id int, state bool) {
+	_simulators[id].Chan_SetObstruction <- state
 }
 
 func MakeOrder(id int, btn elevio.ButtonType, floor int) {

@@ -179,3 +179,53 @@ func TestHallClearOne() error {
 
 	return nil
 }
+
+// Obstruction should open the door if the elevator is stationary at a floor
+func TestObstructionOpenDoor() error {
+	err := waitForInit()
+	if err != nil {
+		return err
+	}
+
+	time.Sleep(1 * time.Second)
+	fatelevator.SetObstruction(0, true)
+
+	err = events.Await("door_opening", func(es []events.ElevatorState) bool { return es[0].DoorOpen }, 10*time.Second)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Orders made during obstruction should be "buffered" until no longer obstructed anymore
+func TestObstructionCompleteOrders() error {
+	err := waitForInit()
+	if err != nil {
+		return err
+	}
+
+	events.Assert("remain_stationary", func(es []events.ElevatorState) bool { return es[0].DoorOpen && es[0].Direction == elevio.MD_Stop },
+		250*time.Millisecond)
+
+	time.Sleep(1 * time.Second)
+	fatelevator.SetObstruction(0, true)
+
+	time.Sleep(1 * time.Second)
+	fatelevator.MakeOrder(0, elevio.BT_Cab, 2)
+	fatelevator.MakeOrder(0, elevio.BT_HallDown, 3)
+	time.Sleep(1 * time.Second)
+
+	events.Disassert("remain_stationary")
+	fatelevator.SetObstruction(0, false)
+
+	err = processOrder(0, elevio.BT_Cab, 2)()
+	if err != nil {
+		return err
+	}
+	err = processOrder(0, elevio.BT_HallDown, 3)()
+	if err != nil {
+		return err
+	}
+	return nil
+}

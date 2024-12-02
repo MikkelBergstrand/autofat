@@ -23,6 +23,13 @@ func CreateTest(id string, testFunc func() error, initParams []fatelevator.Initi
 	}
 }
 
+func CreateSingleElevatorTest(id string, testFunc func() error) Test {
+	return CreateTest(id, testFunc, []fatelevator.InitializationParams{{
+		InitialFloor:  0,
+		BetweenFloors: false,
+	}}, 0)
+}
+
 func (test *Test) Run() bool {
 	network.SetPacketLoss(test.PacketLoss)
 	err := test.Func()
