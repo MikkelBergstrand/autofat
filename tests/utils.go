@@ -2,8 +2,8 @@ package tests
 
 import (
 	"autofat/elevio"
-	"autofat/events"
 	"autofat/fatelevator"
+	"autofat/statemanager"
 	"autofat/studentprogram"
 	"fmt"
 	"time"
@@ -12,11 +12,11 @@ import (
 // Wait for all elevators to reach a valid floor with their doors closed.
 func waitForInit() error {
 	//Add default assertions
-	events.Assert("program_crash", assertAll(func(e events.ElevatorState) bool { return e.Status != studentprogram.CRASHED}), 0)
-	events.Assert("program_outofbound", assertAll(func(e events.ElevatorState) bool { return !e.Outofbounds }), 0)
+	statemanager.Assert("program_crash", assertAll(func(e statemanager.ElevatorState) bool { return e.Status != studentprogram.CRASHED }), 0)
+	statemanager.Assert("program_outofbound", assertAll(func(e statemanager.ElevatorState) bool { return !e.Outofbounds }), 0)
 
 	fmt.Println("Wait for initial state")
-	err := events.Await("init", assertAll(func(e events.ElevatorState) bool {
+	err := statemanager.Await("init", assertAll(func(e statemanager.ElevatorState) bool {
 		return e.Floor != -1 && !e.DoorOpen
 	}), time.Second*10)
 
@@ -35,7 +35,7 @@ func makeHallOrder(elevator int, btn elevio.ButtonType, floor int, elevatorsOnli
 
 	//Wait for all the hall orders to light up. At the same time, we do not allow only
 	//a subset of them lighting up.
-	events.Assert(prefix+"all_hall_orders_or_none", func(es []events.ElevatorState) bool {
+	statemanager.Assert(prefix+"all_hall_orders_or_none", func(es []statemanager.ElevatorState) bool {
 		n_lights := 0
 		for i := range elevatorsOnline {
 			if (btn == elevio.BT_HallUp && es[i].HallUpLights[floor]) ||
@@ -53,7 +53,7 @@ func makeHallOrder(elevator int, btn elevio.ButtonType, floor int, elevatorsOnli
 	for repeat := 0; repeat < 3; repeat++ {
 		fatelevator.MakeOrder(elevator, btn, floor)
 
-		err = events.Await(prefix+"confirmed_all_hall_orders", func(es []events.ElevatorState) bool {
+		err = statemanager.Await(prefix+"confirmed_all_hall_orders", func(es []statemanager.ElevatorState) bool {
 			n_lights := 0
 			for i := range elevatorsOnline {
 				if (btn == elevio.BT_HallUp && es[i].HallUpLights[floor]) ||
@@ -68,7 +68,7 @@ func makeHallOrder(elevator int, btn elevio.ButtonType, floor int, elevatorsOnli
 		}
 	}
 
-	events.Disassert(prefix + "all_hall_orders_or_none")
+	statemanager.Disassert(prefix + "all_hall_orders_or_none")
 	//Once we have lit the hall orders, we assume we are OK.
 	return err
 }
@@ -77,7 +77,7 @@ func makeHallOrder(elevator int, btn elevio.ButtonType, floor int, elevatorsOnli
 // The test will fail if 0 or more than one elevator moves.
 // The ID of the moving elevator will be returned on success.
 func awaitOneMovingElevator(elevatorsOnline []int) (int, error) {
-	events.Assert("only_one_moving_elevator", func(es []events.ElevatorState) bool {
+	statemanager.Assert("only_one_moving_elevator", func(es []statemanager.ElevatorState) bool {
 		elevs_moving := 0
 		for _, id := range elevatorsOnline {
 			if es[id].Direction != elevio.MD_Stop {
@@ -88,7 +88,7 @@ func awaitOneMovingElevator(elevatorsOnline []int) (int, error) {
 	}, 0)
 
 	ret_val := 0
-	err := events.Await("await_moving_elevator", func(es []events.ElevatorState) bool {
+	err := statemanager.Await("await_moving_elevator", func(es []statemanager.ElevatorState) bool {
 		for _, id := range elevatorsOnline {
 			if es[id].Direction != elevio.MD_Stop {
 				ret_val = id
@@ -107,20 +107,20 @@ func awaitOneMovingElevator(elevatorsOnline []int) (int, error) {
 // 3) The doors close again.
 func processOrder(elevator int, btn elevio.ButtonType, floor int) func() error {
 	return func() error {
-		err := events.Await(fmt.Sprintf("process_order_%d_%d_open_door", elevator, floor), func(es []events.ElevatorState) bool {
+		err := statemanager.Await(fmt.Sprintf("process_order_%d_%d_open_door", elevator, floor), func(es []statemanager.ElevatorState) bool {
 			return es[elevator].DoorOpen && es[elevator].Floor == floor && es[elevator].Direction == elevio.MD_Stop
 		}, time.Second*30)
 		if err != nil {
 			return err
 		}
-		err = events.Await(fmt.Sprintf("process_order_%d_%d_shut_light", elevator, floor), func(es []events.ElevatorState) bool {
+		err = statemanager.Await(fmt.Sprintf("process_order_%d_%d_shut_light", elevator, floor), func(es []statemanager.ElevatorState) bool {
 			return !es[elevator].OrderLight(btn, floor)
 		}, time.Second*30)
 		if err != nil {
 			return err
 		}
 
-		err = events.Await(fmt.Sprintf("process_order_%d_%d_door_not_open", elevator, floor), func(es []events.ElevatorState) bool {
+		err = statemanager.Await(fmt.Sprintf("process_order_%d_%d_door_not_open", elevator, floor), func(es []statemanager.ElevatorState) bool {
 			return !es[elevator].DoorOpen
 		}, time.Second*30)
 		if err != nil {
@@ -133,8 +133,8 @@ func processOrder(elevator int, btn elevio.ButtonType, floor int) func() error {
 
 // Helper function. We want to evaluate a condition that should be true for all
 // elevators in the system.
-func assertAll(test func(e events.ElevatorState) bool) func([]events.ElevatorState) bool {
-	return func(es []events.ElevatorState) bool {
+func assertAll(test func(e statemanager.ElevatorState) bool) func([]statemanager.ElevatorState) bool {
+	return func(es []statemanager.ElevatorState) bool {
 		for i := range es {
 			if !test(es[i]) {
 				return false

@@ -1,4 +1,4 @@
-package events
+package statemanager
 
 import (
 	"autofat/elevio"
@@ -107,10 +107,8 @@ func Init() {
 
 	go func() {
 		for {
-			select {
-			case trigger := <-_pollAgain:
-				pollEvents(trigger.Type, trigger.Params)
-			}
+			trigger := <-_pollAgain
+			pollEvents(trigger.Type, trigger.Params)
 		}
 	}()
 }
@@ -147,20 +145,15 @@ func listenToElevators(elevatorId int, simulatedElevator *fatelevator.SimulatedE
 		case new_floor := <-simulatedElevator.Chan_FloorSensor:
 			_elevatorStates[elevatorId].Floor = new_floor
 			_pollAgain <- TriggerMessage{
-				Type: TRIGGER_ARRIVE_FLOOR,
-				Params: Floor{
-					Floor:    new_floor,
-					Elevator: elevatorId,
-				},
+				Type:   TRIGGER_ARRIVE_FLOOR,
+				Params: fmt.Sprintf("floor=%d", new_floor),
 			}
 		case new_floor_light := <-simulatedElevator.Chan_FloorLight:
 			_elevatorStates[elevatorId].FloorLamp = new_floor_light
 			_pollAgain <- TriggerMessage{
-				Type: TRIGGER_FLOOR_LIGHT,
-				Params: Floor{
-					Floor:    new_floor_light,
-					Elevator: elevatorId,
-				}}
+				Type:   TRIGGER_FLOOR_LIGHT,
+				Params: fmt.Sprintf("floor=%d", new_floor_light),
+			}
 		case door_state := <-simulatedElevator.Chan_Door:
 			_elevatorStates[elevatorId].DoorOpen = door_state
 			_pollAgain <- TriggerMessage{

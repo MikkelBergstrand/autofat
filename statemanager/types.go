@@ -1,4 +1,4 @@
-package events
+package statemanager
 
 import (
 	"autofat/elevio"
@@ -22,7 +22,6 @@ type AssertObj struct {
 	Condition   TestConditionFunction
 	AllowedTime time.Duration
 	assert      int
-	C           chan<- bool
 	Data        EventMetadata
 }
 
@@ -141,18 +140,6 @@ func (t Trigger) String() string {
 		TRIGGER_OOB:          "OOB",
 	}
 	return toStr[t]
-}
-
-type Action int
-
-type Floor struct {
-	Elevator int
-	Floor    int
-}
-
-type Button struct {
-	elevio.ButtonEvent
-	Elevator int
 }
 
 type ElevatorState struct {

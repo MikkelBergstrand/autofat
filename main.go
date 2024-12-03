@@ -2,10 +2,10 @@ package main
 
 import (
 	"autofat/config"
-	"autofat/events"
 	"autofat/fatelevator"
 	"autofat/network"
 	"autofat/procmanager"
+	"autofat/statemanager"
 	"autofat/studentprogram"
 	"autofat/tests"
 	"autofat/tmux"
@@ -30,8 +30,7 @@ func initInterruptHandler() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	go func() {
-		for sig := range c {
-			fmt.Println("Catched signal", sig.String())
+		for range c {
 			procmanager.KillAll()
 			os.Exit(1)
 		}
@@ -48,7 +47,7 @@ func main() {
 	procmanager.Init()
 	initInterruptHandler()
 
-	events.Init()
+	statemanager.Init()
 
 	for i := 0; i < 3; i++ {
 		_elevatorConfigs = append(_elevatorConfigs, config.ElevatorConfig{
@@ -98,7 +97,6 @@ func main() {
 
 	obstruction_buffer_order_test := tests.CreateSingleElevatorTest("obstruction_buffer_orders", tests.TestObstructionCompleteOrders)
 
-
 	runTest(&obstruction_buffer_order_test)
 	runTest(&obstruction_open_door_test)
 	runTest(&door_timer_test)
@@ -122,12 +120,12 @@ func runTest(test *tests.Test) {
 	studentprogram.InitalizeFromConfig(LAUNCH_PROGRAM_DIR, _elevatorConfigs, test.NumElevators())
 	time.Sleep(1000 * time.Millisecond)
 
-	events.EventListener(test.Id)
+	statemanager.EventListener(test.Id)
 
 	eval := test.Run()
 	fmt.Println("Value of test was", eval)
 
 	fatelevator.TerminateAll()
-	events.Kill()
+	statemanager.Kill()
 	studentprogram.KillAll()
 }
