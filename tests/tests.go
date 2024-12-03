@@ -2,7 +2,7 @@ package tests
 
 import (
 	"autofat/elevio"
-	"autofat/fatelevator"
+	"autofat/simulator"
 	"autofat/statemanager"
 	"autofat/studentprogram"
 	"time"
@@ -14,7 +14,7 @@ func TestFloorLamp() error {
 		return err
 	}
 
-	fatelevator.MakeOrder(0, elevio.BT_Cab, 3)
+	simulator.MakeOrder(0, elevio.BT_Cab, 3)
 	statemanager.Assert("floor_light_correct", func(es []statemanager.ElevatorState) bool { return es[0].FloorLamp == es[0].Floor },
 		time.Millisecond*500)
 
@@ -44,8 +44,8 @@ func TestCabBackup() error {
 
 	statemanager.Assert("dont_move_other_elevator", func(es []statemanager.ElevatorState) bool { return es[1].Direction == elevio.MD_Stop }, 0)
 
-	fatelevator.MakeOrder(0, elevio.BT_Cab, 3)
-	fatelevator.MakeOrder(0, elevio.BT_Cab, 2)
+	simulator.MakeOrder(0, elevio.BT_Cab, 3)
+	simulator.MakeOrder(0, elevio.BT_Cab, 2)
 
 	err = statemanager.Await("cab_order_confirm", func(es []statemanager.ElevatorState) bool {
 		return es[0].CabLights[3] && es[0].CabLights[2]
@@ -103,7 +103,7 @@ func TestEngineOutage() error {
 	}
 
 	time.Sleep(1 * time.Second)
-	fatelevator.SetEngineFailureState(moving, true)
+	simulator.SetEngineFailureState(moving, true)
 
 	err = processOrder(1, elevio.BT_HallDown, 3)()
 	if err != nil {
@@ -120,7 +120,7 @@ func TestDoorOpenTime() error {
 		return err
 	}
 
-	fatelevator.MakeOrder(0, elevio.BT_Cab, 2)
+	simulator.MakeOrder(0, elevio.BT_Cab, 2)
 	err = statemanager.Await("floor_arrival", func(es []statemanager.ElevatorState) bool { return es[0].Floor == 2 }, 15*time.Second)
 	if err != nil {
 		return err
@@ -188,7 +188,7 @@ func TestObstructionOpenDoor() error {
 	}
 
 	time.Sleep(1 * time.Second)
-	fatelevator.SetObstruction(0, true)
+	simulator.SetObstruction(0, true)
 
 	err = statemanager.Await("door_opening", func(es []statemanager.ElevatorState) bool { return es[0].DoorOpen }, 10*time.Second)
 	if err != nil {
@@ -209,15 +209,15 @@ func TestObstructionCompleteOrders() error {
 		250*time.Millisecond)
 
 	time.Sleep(1 * time.Second)
-	fatelevator.SetObstruction(0, true)
+	simulator.SetObstruction(0, true)
 
 	time.Sleep(1 * time.Second)
-	fatelevator.MakeOrder(0, elevio.BT_Cab, 2)
-	fatelevator.MakeOrder(0, elevio.BT_HallDown, 3)
+	simulator.MakeOrder(0, elevio.BT_Cab, 2)
+	simulator.MakeOrder(0, elevio.BT_HallDown, 3)
 	time.Sleep(1 * time.Second)
 
 	statemanager.Disassert("remain_stationary")
-	fatelevator.SetObstruction(0, false)
+	simulator.SetObstruction(0, false)
 
 	err = processOrder(0, elevio.BT_Cab, 2)()
 	if err != nil {

@@ -1,4 +1,4 @@
-package fatelevator
+package simulator
 
 import (
 	"autofat/config"
@@ -13,7 +13,7 @@ import (
 const LAUNCH_SIMLATOR string = "./SimElevatorServer"
 const NUM_CHANNELS = 10
 
-var _simulators []SimulatedElevator
+var _simulators []Simulator
 var _chan_Terminated chan bool = make(chan bool)
 
 type InitializationParams struct {
@@ -21,7 +21,7 @@ type InitializationParams struct {
 	BetweenFloors bool //Above InitialFloor. So if InitialFloor=1, we will be between 1 and 2.
 }
 
-type SimulatedElevator struct {
+type Simulator struct {
 	Params              InitializationParams
 	io                  *elevio.ElevIO
 	Config              config.ElevatorConfig
@@ -39,7 +39,7 @@ type SimulatedElevator struct {
 }
 
 func Init(config config.ElevatorConfig, params InitializationParams) {
-	_simulators = append(_simulators, SimulatedElevator{})
+	_simulators = append(_simulators, Simulator{})
 	instance := &_simulators[len(_simulators)-1]
 
 	instance.Chan_FloorSensor = make(chan int)
@@ -62,18 +62,18 @@ func Count() int {
 	return len(_simulators)
 }
 
-func Get(id int) *SimulatedElevator {
+func Get(id int) *Simulator {
 	return &_simulators[id]
 }
 
 func Run(id int) {
 	elevator := &_simulators[id]
 	elevator.io = &elevio.ElevIO{}
-	fmt.Printf("Launching simulator process, port=%d, fatPort=%d\n", elevator.Config.UserAddrPort.Port(), elevator.Config.FatAddrPort.Port())
+	fmt.Printf("Launching simulator process, port=%d, externalPort=%d\n", elevator.Config.UserAddrPort.Port(), elevator.Config.ExternalAddrPort.Port())
 
 	args := []string{
 		"--port", strconv.Itoa(int(elevator.Config.UserAddrPort.Port())),
-		"--externalPort", strconv.Itoa(int(elevator.Config.FatAddrPort.Port())),
+		"--externalPort", strconv.Itoa(int(elevator.Config.ExternalAddrPort.Port())),
 		"--startFloor", strconv.Itoa(int(elevator.Params.InitialFloor)),
 	}
 	if elevator.Params.BetweenFloors {
@@ -87,7 +87,7 @@ func Run(id int) {
 	//Wait for process to start, then init the IO interface
 	time.Sleep(1 * time.Second)
 
-	elevator.io.Init(fmt.Sprintf(":%d", elevator.Config.FatAddrPort.Port()), elevio.N_FLOORS, elevator.Chan_Kill)
+	elevator.io.Init(fmt.Sprintf(":%d", elevator.Config.ExternalAddrPort.Port()), elevio.N_FLOORS, elevator.Chan_Kill)
 
 	go elevator.io.PollFloorSensor(elevator.Chan_FloorSensor)
 	go elevator.io.PollFloorLight(elevator.Chan_FloorLight)
@@ -153,7 +153,7 @@ func TerminateAll() {
 		}
 	}
 	//Clear the array
-	_simulators = make([]SimulatedElevator, 0)
+	_simulators = make([]Simulator, 0)
 }
 
 // Set whether or not the engine is working.

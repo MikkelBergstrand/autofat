@@ -2,7 +2,7 @@ package tests
 
 import (
 	"autofat/elevio"
-	"autofat/fatelevator"
+	"autofat/simulator"
 	"autofat/statemanager"
 	"autofat/studentprogram"
 	"fmt"
@@ -51,7 +51,7 @@ func makeHallOrder(elevator int, btn elevio.ButtonType, floor int, elevatorsOnli
 	//Now, wait for all hall orders to be set.
 	//We repeat making the button press three times before giving up
 	for repeat := 0; repeat < 3; repeat++ {
-		fatelevator.MakeOrder(elevator, btn, floor)
+		simulator.MakeOrder(elevator, btn, floor)
 
 		err = statemanager.Await(prefix+"confirmed_all_hall_orders", func(es []statemanager.ElevatorState) bool {
 			n_lights := 0

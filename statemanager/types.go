@@ -1,8 +1,6 @@
 package statemanager
 
 import (
-	"autofat/elevio"
-	"autofat/studentprogram"
 	"fmt"
 	"math/rand/v2"
 	"time"
@@ -12,24 +10,24 @@ type EventType byte
 
 type TestConditionFunction func([]ElevatorState) bool
 
-type EventMetadata struct {
+type t_eventData struct {
 	Timeout bool
 	TestId  string
 	Id      string
 }
 
-type AssertObj struct {
+type t_assert struct {
 	Condition   TestConditionFunction
 	AllowedTime time.Duration
 	assert      int
-	Data        EventMetadata
+	Data        t_eventData
 }
 
-func (w AssertObj) IsAsserted() bool {
+func (w t_assert) IsAsserted() bool {
 	return w.assert > 0
 }
 
-func (w AssertObj) Abort() AssertObj {
+func (w t_assert) Abort() t_assert {
 	if w.IsAsserted() {
 		fmt.Println("Safety assert ", w.Data, "aborted")
 		w.assert = 0
@@ -37,7 +35,7 @@ func (w AssertObj) Abort() AssertObj {
 	return w
 }
 
-func (w AssertObj) Assert() AssertObj {
+func (w t_assert) Assert() t_assert {
 	if w.IsAsserted() {
 		return w
 	}
@@ -51,18 +49,18 @@ func (w AssertObj) Assert() AssertObj {
 
 }
 
-type AwaitObj struct {
+type t_await struct {
 	Condition     TestConditionFunction
 	Timeout       time.Duration
-	chan_internal chan EventMetadata
+	chan_internal chan t_eventData
 	triggered     bool
 	timer         *time.Timer
-	Data          EventMetadata
+	Data          t_eventData
 }
 
 // If what we are waiting for does not happen in the allotted time,
 // send something on the failure channel
-func AwaitWatchdog(id string) {
+func awaitWatchDog(id string) {
 	w := _awaits[id]
 	//Result is false, we failed (unless we already succeeded).
 	if w.triggered {
@@ -87,7 +85,7 @@ func AwaitWatchdog(id string) {
 
 // Trigger the Await by putting out on the channel.
 // Channel may only put out once.
-func (w AwaitObj) Trigger() AwaitObj {
+func (w t_await) Trigger() t_await {
 	if w.triggered {
 		return w
 	}
@@ -102,18 +100,18 @@ func (w AwaitObj) Trigger() AwaitObj {
 	return w
 }
 
-func (w AwaitObj) Delete() AwaitObj {
+func (w t_await) Delete() t_await {
 	w.triggered = true
 	fmt.Println("Deleting await", w.Data)
 	return w
 }
 
-type TriggerMessage struct {
-	Type   Trigger
+type triggerMessage struct {
+	Type   trigger
 	Params interface{}
 }
 
-type Trigger int
+type trigger int
 
 const (
 	TRIGGER_ARRIVE_FLOOR = iota + 1
@@ -121,15 +119,13 @@ const (
 	TRIGGER_FLOOR_LIGHT
 	TRIGGER_ORDER_LIGHT
 	TRIGGER_OBSTRUCTION
-	TRIGGER_SAFETYASSERT
-	TRIGGER_UNTILASSERT
 	TRIGGER_DIRECTION
 	TRIGGER_CRASH
 	TRIGGER_OOB
 )
 
-func (t Trigger) String() string {
-	toStr := map[Trigger]string{
+func (t trigger) String() string {
+	toStr := map[trigger]string{
 		TRIGGER_ARRIVE_FLOOR: "ARRIVE_FLOOR",
 		TRIGGER_DOOR:         "DOOR",
 		TRIGGER_FLOOR_LIGHT:  "FLOOR_LIGHT",
@@ -140,50 +136,4 @@ func (t Trigger) String() string {
 		TRIGGER_OOB:          "OOB",
 	}
 	return toStr[t]
-}
-
-type ElevatorState struct {
-	Status      studentprogram.ProgramStatus
-	FloorLamp   int
-	Floor       int
-	Direction   elevio.MotorDirection
-	DoorOpen    bool
-	Obstruction bool
-	Outofbounds bool
-
-	CabLights      []bool
-	HallUpLights   []bool
-	HallDownLights []bool
-}
-
-func (es *ElevatorState) OrderLight(btn elevio.ButtonType, floor int) bool {
-	switch btn {
-	case elevio.BT_HallDown:
-		return es.HallDownLights[floor]
-	case elevio.BT_HallUp:
-		return es.HallUpLights[floor]
-	case elevio.BT_Cab:
-		return es.CabLights[floor]
-	default:
-		panic("Invalid elevio.ButtonType")
-	}
-}
-
-func InitElevatorState(nFloors int) ElevatorState {
-	//Initialize a new ElevatorState object.
-	ret := ElevatorState{
-		FloorLamp:   -1,
-		Floor:       -1,
-		Direction:   elevio.MD_Stop,
-		DoorOpen:    false,
-		Obstruction: false,
-		Status:      studentprogram.RUNNING,
-		Outofbounds: false,
-	}
-
-	ret.CabLights = make([]bool, nFloors)
-	ret.HallDownLights = make([]bool, nFloors)
-	ret.HallUpLights = make([]bool, nFloors)
-
-	return ret
 }

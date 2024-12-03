@@ -1,19 +1,19 @@
 package tests
 
 import (
-	"autofat/fatelevator"
 	"autofat/network"
+	"autofat/simulator"
 )
 
 type Test struct {
 	Id            string
-	InitialParams []fatelevator.InitializationParams
+	InitialParams []simulator.InitializationParams
 	Func          func() error
 	Result        bool
 	PacketLoss    int
 }
 
-func CreateTest(id string, testFunc func() error, initParams []fatelevator.InitializationParams, packetLoss int) Test {
+func CreateTest(id string, testFunc func() error, initParams []simulator.InitializationParams, packetLoss int) Test {
 	return Test{
 		Id:            id,
 		Func:          testFunc,
@@ -24,7 +24,7 @@ func CreateTest(id string, testFunc func() error, initParams []fatelevator.Initi
 }
 
 func CreateSingleElevatorTest(id string, testFunc func() error) Test {
-	return CreateTest(id, testFunc, []fatelevator.InitializationParams{{
+	return CreateTest(id, testFunc, []simulator.InitializationParams{{
 		InitialFloor:  0,
 		BetweenFloors: false,
 	}}, 0)

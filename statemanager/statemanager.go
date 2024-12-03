@@ -2,28 +2,28 @@ package statemanager
 
 import (
 	"autofat/elevio"
-	"autofat/fatelevator"
+	"autofat/simulator"
 	"autofat/studentprogram"
 	"fmt"
 	"time"
 )
 
-var _asserts map[string]AssertObj
-var _awaits map[string]AwaitObj
+var _asserts map[string]t_assert
+var _awaits map[string]t_await
 
 var _elevatorStates []ElevatorState
 var _testId string
 
 var _chan_Kill chan bool
 var _chan_Terminated chan bool
-var _pollAgain chan TriggerMessage
+var _pollAgain chan triggerMessage
 
 func Assert(id string, fn TestConditionFunction, timeAllowed time.Duration) {
-	_asserts[id] = AssertObj{
+	_asserts[id] = t_assert{
 		Condition:   fn,
 		AllowedTime: timeAllowed,
 		assert:      0,
-		Data: EventMetadata{
+		Data: t_eventData{
 			Id:     id,
 			TestId: _testId,
 		},
@@ -35,14 +35,14 @@ func Disassert(id string) {
 }
 
 func Await(id string, fn TestConditionFunction, timeout time.Duration) error {
-	wait_for := AwaitObj{
-		Data: EventMetadata{
+	wait_for := t_await{
+		Data: t_eventData{
 			Id:     id,
 			TestId: _testId,
 		},
 		Condition:     fn,
 		Timeout:       timeout,
-		chan_internal: make(chan EventMetadata),
+		chan_internal: make(chan t_eventData),
 	}
 
 	//Check if immediately true
@@ -52,7 +52,7 @@ func Await(id string, fn TestConditionFunction, timeout time.Duration) error {
 	}
 
 	_awaits[id] = wait_for
-	go AwaitWatchdog(id)
+	go awaitWatchDog(id)
 
 	fmt.Println("Await: ", id, "Added to system")
 
@@ -66,7 +66,7 @@ func Await(id string, fn TestConditionFunction, timeout time.Duration) error {
 
 // On the arrival of a new trigger, check the loaded events and see if
 // any of them are listening on the current trigger. If yes,
-func pollEvents(triggerType Trigger, triggerParams interface{}) {
+func pollEvents(triggerType trigger, triggerParams interface{}) {
 	fmt.Println("Polling events of type", triggerType, "params: ", triggerParams, "u: ", len(_awaits))
 	for i := range _asserts {
 		if _asserts[i].IsAsserted() && _asserts[i].Condition(_elevatorStates) {
@@ -83,7 +83,7 @@ func pollEvents(triggerType Trigger, triggerParams interface{}) {
 					//Fail all waiting awaits
 					for id, await := range _awaits {
 						delete(_awaits, id)
-						await.chan_internal <- EventMetadata{
+						await.chan_internal <- t_eventData{
 							Timeout: true,
 							Id:      await.Data.Id,
 							TestId:  await.Data.TestId,
@@ -103,7 +103,7 @@ func pollEvents(triggerType Trigger, triggerParams interface{}) {
 }
 
 func Init() {
-	_pollAgain = make(chan TriggerMessage)
+	_pollAgain = make(chan triggerMessage)
 
 	go func() {
 		for {
@@ -121,17 +121,17 @@ func EventListener(
 	_testId = testId
 
 	_elevatorStates = make([]ElevatorState, 0)
-	_asserts = make(map[string]AssertObj)
-	_awaits = make(map[string]AwaitObj)
+	_asserts = make(map[string]t_assert)
+	_awaits = make(map[string]t_await)
 
 	//First time init
-	for i := range fatelevator.Count() {
+	for i := range simulator.Count() {
 		_elevatorStates = append(_elevatorStates, InitElevatorState(elevio.N_FLOORS))
-		go listenToElevators(i, fatelevator.Get(i), studentprogram.Get(i))
+		go listenToElevators(i, simulator.Get(i), studentprogram.Get(i))
 	}
 }
 
-func listenToElevators(elevatorId int, simulatedElevator *fatelevator.SimulatedElevator, studentProgram studentprogram.StudentProgram) {
+func listenToElevators(elevatorId int, simulatedElevator *simulator.Simulator, studentProgram studentprogram.StudentProgram) {
 	//Process signals from simulated elevators.
 	//In response, poll active events for triggers, and update the local state.
 	for {
@@ -144,19 +144,19 @@ func listenToElevators(elevatorId int, simulatedElevator *fatelevator.SimulatedE
 			}
 		case new_floor := <-simulatedElevator.Chan_FloorSensor:
 			_elevatorStates[elevatorId].Floor = new_floor
-			_pollAgain <- TriggerMessage{
+			_pollAgain <- triggerMessage{
 				Type:   TRIGGER_ARRIVE_FLOOR,
 				Params: fmt.Sprintf("floor=%d", new_floor),
 			}
 		case new_floor_light := <-simulatedElevator.Chan_FloorLight:
 			_elevatorStates[elevatorId].FloorLamp = new_floor_light
-			_pollAgain <- TriggerMessage{
+			_pollAgain <- triggerMessage{
 				Type:   TRIGGER_FLOOR_LIGHT,
 				Params: fmt.Sprintf("floor=%d", new_floor_light),
 			}
 		case door_state := <-simulatedElevator.Chan_Door:
 			_elevatorStates[elevatorId].DoorOpen = door_state
-			_pollAgain <- TriggerMessage{
+			_pollAgain <- triggerMessage{
 				Type:   TRIGGER_DOOR,
 				Params: door_state,
 			}
@@ -169,32 +169,32 @@ func listenToElevators(elevatorId int, simulatedElevator *fatelevator.SimulatedE
 			case elevio.BT_HallUp:
 				_elevatorStates[elevatorId].HallUpLights[order_light.Floor] = order_light.Value
 			}
-			_pollAgain <- TriggerMessage{
+			_pollAgain <- triggerMessage{
 				Type:   TRIGGER_ORDER_LIGHT,
 				Params: order_light,
 			}
 		case obstruction := <-simulatedElevator.Chan_Obstruction:
 			_elevatorStates[elevatorId].Obstruction = obstruction
-			_pollAgain <- TriggerMessage{
+			_pollAgain <- triggerMessage{
 				Type:   TRIGGER_OBSTRUCTION,
 				Params: obstruction,
 			}
 		case new_dir := <-simulatedElevator.Chan_Direction:
 			_elevatorStates[elevatorId].Direction = new_dir
-			_pollAgain <- TriggerMessage{
+			_pollAgain <- triggerMessage{
 				Type:   TRIGGER_DIRECTION,
 				Params: fmt.Sprintf("Elevator %d, dir %s", elevatorId, new_dir.String()),
 			}
 		case <-simulatedElevator.Chan_Outofbounds:
 			//Fail instantly when elevator reaches out of bounds
 			_elevatorStates[elevatorId].Outofbounds = true
-			_pollAgain <- TriggerMessage{
+			_pollAgain <- triggerMessage{
 				Type:   TRIGGER_OOB,
 				Params: elevatorId,
 			}
 		case <-studentProgram.Chan_Crash:
 			_elevatorStates[elevatorId].Status = studentprogram.CRASHED
-			_pollAgain <- TriggerMessage{
+			_pollAgain <- triggerMessage{
 				Type:   TRIGGER_CRASH,
 				Params: elevatorId,
 			}

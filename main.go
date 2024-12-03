@@ -2,9 +2,9 @@ package main
 
 import (
 	"autofat/config"
-	"autofat/fatelevator"
 	"autofat/network"
 	"autofat/procmanager"
+	"autofat/simulator"
 	"autofat/statemanager"
 	"autofat/studentprogram"
 	"autofat/tests"
@@ -51,14 +51,14 @@ func main() {
 
 	for i := 0; i < 3; i++ {
 		_elevatorConfigs = append(_elevatorConfigs, config.ElevatorConfig{
-			UserAddrPort: netip.AddrPortFrom(netip.AddrFrom4(LOCALHOST), USERPROGRAM_PORTS[i]),
-			FatAddrPort:  netip.AddrPortFrom(netip.AddrFrom4(LOCALHOST), FATPROGRAM_PORTS[i]),
+			UserAddrPort:     netip.AddrPortFrom(netip.AddrFrom4(LOCALHOST), USERPROGRAM_PORTS[i]),
+			ExternalAddrPort: netip.AddrPortFrom(netip.AddrFrom4(LOCALHOST), FATPROGRAM_PORTS[i]),
 		})
 	}
 
 	network.Init(LAUNCH_PROGRAM_DIR, _elevatorConfigs)
 
-	test_cab_backup := tests.CreateTest("cab_backup", tests.TestCabBackup, []fatelevator.InitializationParams{{
+	test_cab_backup := tests.CreateTest("cab_backup", tests.TestCabBackup, []simulator.InitializationParams{{
 		InitialFloor:  0,
 		BetweenFloors: false,
 	}, {
@@ -66,31 +66,31 @@ func main() {
 		BetweenFloors: false,
 	}}, 0)
 
-	test := tests.CreateTest("floor_lamp", tests.TestFloorLamp, []fatelevator.InitializationParams{{
+	test := tests.CreateTest("floor_lamp", tests.TestFloorLamp, []simulator.InitializationParams{{
 		InitialFloor:  0,
 		BetweenFloors: false,
 	}}, 0)
-	test2 := tests.CreateTest("init_between_floors", tests.TestInitBetweenFloors, []fatelevator.InitializationParams{{
+	test2 := tests.CreateTest("init_between_floors", tests.TestInitBetweenFloors, []simulator.InitializationParams{{
 		InitialFloor:  0,
 		BetweenFloors: true,
 	}}, 0)
-	engine_fail_test := tests.CreateTest("engine_failure", tests.TestEngineOutage, []fatelevator.InitializationParams{{
+	engine_fail_test := tests.CreateTest("engine_failure", tests.TestEngineOutage, []simulator.InitializationParams{{
 		InitialFloor:  0,
 		BetweenFloors: false,
 	}, {
 		InitialFloor:  0,
 		BetweenFloors: false,
 	}}, 0)
-	hall_clear_one_test := tests.CreateTest("hall_clear_one", tests.TestHallClearOne, []fatelevator.InitializationParams{{
+	hall_clear_one_test := tests.CreateTest("hall_clear_one", tests.TestHallClearOne, []simulator.InitializationParams{{
 		InitialFloor:  0,
 		BetweenFloors: false,
 	}}, 0)
-	door_timer_test := tests.CreateTest("door_timer", tests.TestDoorOpenTime, []fatelevator.InitializationParams{{
+	door_timer_test := tests.CreateTest("door_timer", tests.TestDoorOpenTime, []simulator.InitializationParams{{
 		InitialFloor:  0,
 		BetweenFloors: false,
 	}}, 0)
 
-	obstruction_open_door_test := tests.CreateTest("obstruction_opens_door", tests.TestObstructionOpenDoor, []fatelevator.InitializationParams{{
+	obstruction_open_door_test := tests.CreateTest("obstruction_opens_door", tests.TestObstructionOpenDoor, []simulator.InitializationParams{{
 		InitialFloor:  0,
 		BetweenFloors: false,
 	}}, 0)
@@ -112,8 +112,8 @@ func runTest(test *tests.Test) {
 	tmux.Launch()
 
 	for i := 0; i < test.NumElevators(); i++ {
-		fatelevator.Init(_elevatorConfigs[i], test.InitialParams[i])
-		fatelevator.Run(i)
+		simulator.Init(_elevatorConfigs[i], test.InitialParams[i])
+		simulator.Run(i)
 	}
 
 	time.Sleep(500 * time.Millisecond)
@@ -125,7 +125,7 @@ func runTest(test *tests.Test) {
 	eval := test.Run()
 	fmt.Println("Value of test was", eval)
 
-	fatelevator.TerminateAll()
+	simulator.TerminateAll()
 	statemanager.Kill()
 	studentprogram.KillAll()
 }
