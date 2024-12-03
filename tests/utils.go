@@ -17,7 +17,7 @@ func waitForInit() error {
 
 	fmt.Println("Wait for initial state")
 	err := statemanager.Await("init", assertAll(func(e statemanager.ElevatorState) bool {
-		return e.Floor != -1 && !e.DoorOpen
+		return e.Floor != -1 && !e.DoorOpen && e.Direction == elevio.MD_Stop
 	}), time.Second*10)
 
 	return err
