@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 )
 
 type ProgramStatus int
@@ -34,7 +35,7 @@ var _studentPrograms map[int]StudentProgram
 
 const CONFIG_FILENAME = "init.cfg"
 
-func InitalizeFromConfig(programDir string, config []config.ElevatorConfig, nElevators int) {
+func InitalizeFromConfig(waitTime time.Duration, programDir string, config []config.ElevatorConfig, nElevators int) {
 	_studentPrograms = make(map[int]StudentProgram)
 	data, err := os.ReadFile(programDir + "/" + CONFIG_FILENAME)
 	if err != nil {
@@ -59,6 +60,8 @@ func InitalizeFromConfig(programDir string, config []config.ElevatorConfig, nEle
 		_studentPrograms[i] = prog
 
 		go runprocess(i)
+		fmt.Println("Waiting ", waitTime)
+		time.Sleep(waitTime)
 	}
 }
 

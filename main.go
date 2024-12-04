@@ -114,7 +114,6 @@ func main() {
 
 	if !cfg.NoTests {
 		runTest(&test_cab_backup)
-		select {}
 		runTest(&obstruction_buffer_order_test)
 		runTest(&obstruction_open_door_test)
 		runTest(&door_timer_test)
@@ -137,7 +136,7 @@ func runTest(test *tests.Test) {
 	}
 
 	time.Sleep(500 * time.Millisecond)
-	studentprogram.InitalizeFromConfig(cfg.StudentProgramDir, _elevatorConfigs, test.NumElevators())
+	studentprogram.InitalizeFromConfig(cfg.StudentProgramWaitTime, cfg.StudentProgramDir, _elevatorConfigs, test.NumElevators())
 	time.Sleep(1000 * time.Millisecond)
 
 	statemanager.EventListener(test.Id)
