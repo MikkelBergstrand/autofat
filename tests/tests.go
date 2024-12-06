@@ -23,7 +23,6 @@ func TestFloorLamp() error {
 		return err
 	}
 
-	time.Sleep(1 * time.Second)
 	return nil
 }
 
