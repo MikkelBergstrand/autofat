@@ -33,9 +33,9 @@ ip link set veth-2 netns container2
 ip link set veth-2-br master v-net-0
 
 # Set IP adresses foreach container.
-ip -n container0 addr add 10.10.0.1/24 dev veth-0
-ip -n container1 addr add 10.10.0.2/24 dev veth-1
-ip -n container2 addr add 10.10.0.3/24 dev veth-2
+ip -n container0 addr add 10.0.0.1/24 dev veth-0
+ip -n container1 addr add 10.0.0.2/24 dev veth-1
+ip -n container2 addr add 10.0.0.3/24 dev veth-2
 
 # Bring to life all interfaces.
 ip -n container0 link set veth-0 up
