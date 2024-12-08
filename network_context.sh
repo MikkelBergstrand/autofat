@@ -58,6 +58,11 @@ ip -n container0 addr add 127.0.0.1/8 dev lo
 ip -n container1 addr add 127.0.0.1/8 dev lo
 ip -n container2 addr add 127.0.0.1/8 dev lo
 
+# Enable loopbacks
+ip -n container0 link set lo up
+ip -n container1 link set lo up
+ip -n container2 link set lo up
+
 # NAT will translate 10.0.0.0, so that the network may reach
 # the outside world (useful since some students poll 8.8.8.8 or such to check
 # network connectivity)
