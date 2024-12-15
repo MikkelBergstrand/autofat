@@ -2,11 +2,11 @@ package studentprogram
 
 import (
 	"autofat/config"
+	"autofat/network"
 	"autofat/procmanager"
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
@@ -68,7 +68,7 @@ func InitalizeFromConfig(waitTime time.Duration, programDir string, config []con
 func runprocess(elevatorId int) {
 	prog := _studentPrograms[elevatorId]
 	//Launching with context so that we abort when the program aborts.
-	cmd := exec.Command(prog.Executable, prog.Params...)
+	cmd := network.CommandInNamespace(elevatorId, prog.Executable, prog.Params)
 
 	//This *should* according to some online guides make it so that child processes are killed
 	//with the parent, but it does not seem like os/exec respects this....

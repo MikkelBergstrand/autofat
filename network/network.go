@@ -29,7 +29,7 @@ func runOrPanic(cmd string) {
 	}
 }
 
-func Init(dir string, cfgs []config.ElevatorConfig) {
+func Init(dir string, cfg config.Config) {
 	clearIPTables()
 
 	ports, err := loadPortsFromFile(dir)
@@ -37,7 +37,7 @@ func Init(dir string, cfgs []config.ElevatorConfig) {
 		fmt.Println("Warning: could not load ports from ports.cfg: ", err.Error())
 	}
 
-	systemPorts := getSystemPorts(cfgs)
+	systemPorts := getSystemPorts(cfg)
 
 	for _, porta := range systemPorts {
 		for _, portb := range ports {
@@ -86,11 +86,11 @@ func SetPacketLoss(percentage int) {
 	}
 }
 
-func getSystemPorts(cfgs []config.ElevatorConfig) []uint16 {
+func getSystemPorts(cfg config.Config) []uint16 {
 	var ports_reserved []uint16
-	for _, cfg := range cfgs {
-		ports_reserved = append(ports_reserved, cfg.ExternalAddrPort.Port())
-		ports_reserved = append(ports_reserved, cfg.UserAddrPort.Port())
+	for _, cfg_elev := range cfg.SimulatorAddresses {
+		ports_reserved = append(ports_reserved, cfg_elev.Port())
+		ports_reserved = append(ports_reserved, cfg_elev.Port())
 	}
 	return ports_reserved
 }

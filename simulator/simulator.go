@@ -3,9 +3,9 @@ package simulator
 import (
 	"autofat/config"
 	"autofat/elevio"
+	"autofat/network"
 	"autofat/tmux"
 	"fmt"
-	"os/exec"
 	"strconv"
 	"time"
 )
@@ -80,14 +80,14 @@ func Run(id int) {
 		args = append(args, "--randomStart")
 	}
 
-	cmd := exec.Command(LAUNCH_SIMLATOR, args...)
+	cmd := network.CommandInNamespace(id, LAUNCH_SIMLATOR, args)
 
 	tmux.LaunchInPane(cmd, tmux.WINDOW_ELEVATORS, id)
 
 	//Wait for process to start, then init the IO interface
 	time.Sleep(1 * time.Second)
 
-	elevator.io.Init(fmt.Sprintf(":%d", elevator.Config.ExternalAddrPort.Port()), elevio.N_FLOORS, elevator.Chan_Kill)
+	elevator.io.Init(elevator.Config.ExternalAddrPort.String(), elevio.N_FLOORS, elevator.Chan_Kill)
 
 	go elevator.io.PollFloorSensor(elevator.Chan_FloorSensor)
 	go elevator.io.PollFloorLight(elevator.Chan_FloorLight)

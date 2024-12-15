@@ -21,7 +21,7 @@ func LaunchInPane(ex *exec.Cmd, window string, paneId int) {
 		log.Fatal(err)
 	}
 
-	err = exec.Command("tmux", "send-keys", (ex.Path + " " + strings.Join(ex.Args, " ")), "C-m").Run()
+	err = exec.Command("tmux", "send-keys", (strings.Join(ex.Args, " ")), "C-m").Run()
 	if err != nil {
 		log.Fatal(err)
 	}

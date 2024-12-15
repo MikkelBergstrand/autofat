@@ -10,7 +10,6 @@ import (
 	"autofat/tests"
 	"autofat/tmux"
 	"fmt"
-	"net/netip"
 	"os"
 	"os/signal"
 	"time"
@@ -35,29 +34,18 @@ func initInterruptHandler() {
 	}()
 }
 
-var USERPROGRAM_PORTS = [3]uint16{12345, 12346, 12347}
-var FATPROGRAM_PORTS = [3]uint16{12348, 12349, 12350}
-var LOCALHOST = [4]byte{127, 0, 0, 1}
-
-var _elevatorConfigs []config.ElevatorConfig
 var cfg config.Config
 
 func main() {
 	cfg = config.LoadFromFlags()
 
+	network.InitNamespaceConfig(cfg.NetworkNamespaces[:])
 	procmanager.Init()
 	initInterruptHandler()
 
 	statemanager.Init()
 
-	for i := 0; i < 3; i++ {
-		_elevatorConfigs = append(_elevatorConfigs, config.ElevatorConfig{
-			UserAddrPort:     netip.AddrPortFrom(netip.AddrFrom4(LOCALHOST), USERPROGRAM_PORTS[i]),
-			ExternalAddrPort: netip.AddrPortFrom(netip.AddrFrom4(LOCALHOST), FATPROGRAM_PORTS[i]),
-		})
-	}
-
-	network.Init(cfg.StudentProgramDir, _elevatorConfigs)
+	network.Init(cfg.StudentProgramDir, cfg)
 
 	test_cab_backup := tests.CreateTest("cab_backup", tests.TestCabBackup, []simulator.InitializationParams{{
 		InitialFloor:  0,
@@ -131,12 +119,12 @@ func runTest(test *tests.Test) {
 	tmux.Launch()
 
 	for i := 0; i < test.NumElevators(); i++ {
-		simulator.Init(_elevatorConfigs[i], test.InitialParams[i])
+		simulator.Init(cfg.GetElevatorConfig(i), test.InitialParams[i])
 		simulator.Run(i)
 	}
 
 	time.Sleep(500 * time.Millisecond)
-	studentprogram.InitalizeFromConfig(cfg.StudentProgramWaitTime, cfg.StudentProgramDir, _elevatorConfigs, test.NumElevators())
+	studentprogram.InitalizeFromConfig(cfg.StudentProgramWaitTime, cfg.StudentProgramDir, cfg.GetAllElevatorConfigs(), test.NumElevators())
 	time.Sleep(1000 * time.Millisecond)
 
 	statemanager.EventListener(test.Id)
