@@ -27,7 +27,7 @@ func (io *ElevIO) Init(addr string, numFloors int, killChan <-chan bool) {
 	var err error
 	io.conn, err = net.Dial("tcp", addr)
 	if err != nil {
-		panic(err.Error())
+		panic("Could not connect to simulator: " + err.Error())
 	}
 	io.initialized = true
 	io.killChan = killChan

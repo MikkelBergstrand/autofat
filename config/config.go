@@ -19,6 +19,7 @@ type Config struct {
 	NetworkNamespaces       [3]string
 	SimulatorAddresses      [3]netip.AddrPort
 	StudentProgramAddresses [3]netip.AddrPort
+	SimElevatorServerPath   string
 }
 
 func LoadFromFlags() Config {
@@ -37,10 +38,11 @@ func LoadFromFlags() Config {
 	}
 
 	flag.StringVar(&config.StudentProgramDir, "studentdir", "", "sets directory of student program (relevant to the executing directory)")
-	flag.BoolVar(&config.NoTests, "notests", false, "Only launches student programs / simulators. Do not run any test.")
+	flag.StringVar(&config.SimElevatorServerPath, "simserverpath", "./SimElevatorServer", "path of the simulator executable.")
+	flag.BoolVar(&config.NoTests, "notests", false, "Only launches student programs / simulators. Does not run any test.")
 
 	var wait_time_seconds int
-	flag.IntVar(&wait_time_seconds, "studwaittime", 1, "How many seconds to wait between launching student programs (default=1 sec.).")
+	flag.IntVar(&wait_time_seconds, "studwaittime", 1, "How many seconds to wait between launching student programs.")
 
 	for i := 0; i < 3; i++ {
 		//Namespaces
@@ -56,7 +58,10 @@ func LoadFromFlags() Config {
 	flag.Parse()
 
 	config.StudentProgramWaitTime = time.Second * time.Duration(wait_time_seconds)
-	fmt.Println(config.StudentProgramWaitTime)
+
+	if config.StudentProgramDir == "" {
+		panic("You must specify the student program directory with --studentdir!")
+	}
 	return config
 }
 

@@ -39,7 +39,9 @@ var cfg config.Config
 func main() {
 	cfg = config.LoadFromFlags()
 
+	simulator.SetExecutablePath(cfg.SimElevatorServerPath)
 	network.InitNamespaceConfig(cfg.NetworkNamespaces[:])
+
 	procmanager.Init()
 	initInterruptHandler()
 

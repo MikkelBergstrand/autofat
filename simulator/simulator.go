@@ -10,9 +10,9 @@ import (
 	"time"
 )
 
-const LAUNCH_SIMLATOR string = "./SimElevatorServer"
 const NUM_CHANNELS = 10
 
+var _executable string
 var _simulators []Simulator
 var _chan_Terminated chan bool = make(chan bool)
 
@@ -36,6 +36,10 @@ type Simulator struct {
 	Chan_Direction      chan elevio.MotorDirection
 	Chan_ToggleEngine   chan bool
 	Chan_Kill           chan bool
+}
+
+func SetExecutablePath(executable string) {
+	_executable = executable
 }
 
 func Init(config config.ElevatorConfig, params InitializationParams) {
@@ -80,7 +84,7 @@ func Run(id int) {
 		args = append(args, "--randomStart")
 	}
 
-	cmd := network.CommandInNamespace(id, LAUNCH_SIMLATOR, args)
+	cmd := network.CommandInNamespace(id, _executable, args)
 
 	tmux.LaunchInPane(cmd, tmux.WINDOW_ELEVATORS, id)
 
