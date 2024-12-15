@@ -95,5 +95,3 @@ is omitted, it will default to `localhost`.
 See these arguments again by running
 
     go run main.go --help
-
-
