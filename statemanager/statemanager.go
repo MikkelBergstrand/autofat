@@ -5,11 +5,7 @@ import (
 	"autofat/simulator"
 	"autofat/studentprogram"
 	"fmt"
-	"time"
 )
-
-var _asserts map[string]t_assert
-var _awaits map[string]t_await
 
 var _elevatorStates []ElevatorState
 var _testId string
@@ -18,93 +14,26 @@ var _chan_Kill chan bool
 var _chan_Terminated chan bool
 var _pollAgain chan triggerMessage
 
-func Assert(id string, fn TestConditionFunction, timeAllowed time.Duration) {
-	_asserts[id] = t_assert{
-		Condition:   fn,
-		AllowedTime: timeAllowed,
-		assert:      0,
-		Data: t_eventData{
-			Id:     id,
-			TestId: _testId,
-		},
-	}
-}
-
-func Disassert(id string) {
-	delete(_asserts, id)
-}
-
-func Await(id string, fn TestConditionFunction, timeout time.Duration) error {
-	wait_for := t_await{
-		Data: t_eventData{
-			Id:     id,
-			TestId: _testId,
-		},
-		Condition:     fn,
-		Timeout:       timeout,
-		chan_internal: make(chan t_eventData),
-	}
-
-	//Check if immediately true
-	if wait_for.Condition(_elevatorStates) {
-		fmt.Println("Await: ", id, "true upon added to system.")
-		return nil
-	}
-
-	_awaits[id] = wait_for
-	go awaitWatchDog(id)
-
-	fmt.Println("Await: ", id, "Added to system")
-
-	data := <-wait_for.chan_internal
-	fmt.Println("Await event was heard from: ", data)
-	if data.Timeout {
-		return fmt.Errorf("%s timeout", data.Id)
-	}
-	return nil
-}
+var _stateChannels []chan []ElevatorState
 
 // On the arrival of a new trigger, check the loaded events and see if
 // any of them are listening on the current trigger. If yes,
 func pollEvents(triggerType trigger, triggerParams interface{}) {
-	fmt.Println("Polling events of type", triggerType, "params: ", triggerParams, "u: ", len(_awaits))
-	for i := range _asserts {
-		if _asserts[i].IsAsserted() && _asserts[i].Condition(_elevatorStates) {
-			_asserts[i] = _asserts[i].Abort()
-		} else if !_asserts[i].Condition(_elevatorStates) {
-			_asserts[i] = _asserts[i].Assert()
+	fmt.Println("Polling events of type", triggerType, "params: ", triggerParams)
 
-			go func() {
-				assert_at_beginning := _asserts[i].assert
-				timer := time.NewTimer(_asserts[i].AllowedTime)
-				<-timer.C
-				if _asserts[i].assert == assert_at_beginning {
-					fmt.Println("Safety assert ", _asserts[i].Data, "failed!")
-					//Fail all waiting awaits
-					for id, await := range _awaits {
-						delete(_awaits, id)
-						await.chan_internal <- t_eventData{
-							Timeout: true,
-							Id:      await.Data.Id,
-							TestId:  await.Data.TestId,
-						}
-					}
-				}
-			}()
-		}
+	for _, stateChan := range _stateChannels {
+		stateChan <- _elevatorStates
 	}
 
-	for i := range _awaits {
-		if _awaits[i].Condition(_elevatorStates) {
-			_awaits[i] = _awaits[i].Trigger()
-			delete(_awaits, i)
-		}
-	}
+}
+
+func RegisterStateChannel(stateChan chan []ElevatorState) {
+	_stateChannels = append(_stateChannels, stateChan)
+	stateChan <- _elevatorStates
 }
 
 func Init() {
 	_pollAgain = make(chan triggerMessage)
-
 	go func() {
 		for {
 			trigger := <-_pollAgain
@@ -121,8 +50,6 @@ func EventListener(
 	_testId = testId
 
 	_elevatorStates = make([]ElevatorState, 0)
-	_asserts = make(map[string]t_assert)
-	_awaits = make(map[string]t_await)
 
 	//First time init
 	for i := range simulator.Count() {
@@ -206,11 +133,6 @@ func listenToElevators(elevatorId int, simulatedElevator *simulator.Simulator, s
 func Kill() {
 	for range _elevatorStates {
 		_chan_Kill <- true
-	}
-
-	for id, v := range _awaits {
-		_awaits[id] = v.Delete()
-		delete(_awaits, id)
 	}
 	<-_chan_Terminated
 }

@@ -1,3 +1,0 @@
-Hei hallo
-hva skjer baby 
-{{ s3 }}

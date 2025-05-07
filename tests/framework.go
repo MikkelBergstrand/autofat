@@ -1,12 +1,13 @@
 package tests
 
 import (
-	"autofat/network"
+	"autofat/dsl"
 	"autofat/simulator"
+	"log"
 )
 
 type Test struct {
-	Id            string
+	Name          string
 	InitialParams []simulator.InitializationParams
 	Func          func() error
 	Result        bool
@@ -15,7 +16,7 @@ type Test struct {
 
 func CreateTest(id string, testFunc func() error, initParams []simulator.InitializationParams, packetLoss int) Test {
 	return Test{
-		Id:            id,
+		Name:          id,
 		Func:          testFunc,
 		Result:        false,
 		InitialParams: initParams,
@@ -31,9 +32,11 @@ func CreateSingleElevatorTest(id string, testFunc func() error) Test {
 }
 
 func (test *Test) Run() bool {
-	network.SetPacketLoss(test.PacketLoss)
-	err := test.Func()
-	return err == nil
+	err := dsl.Load(test.Name)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return true
 }
 
 func (test Test) NumElevators() int {

@@ -49,46 +49,7 @@ func main() {
 
 	network.Init(cfg.StudentProgramDir, cfg)
 
-	test_cab_backup := tests.CreateTest("cab_backup", tests.TestCabBackup, []simulator.InitializationParams{{
-		InitialFloor:  0,
-		BetweenFloors: false,
-	}, {
-		InitialFloor:  1,
-		BetweenFloors: false,
-	}}, 0)
-
-	test := tests.CreateTest("floor_lamp", tests.TestFloorLamp, []simulator.InitializationParams{{
-		InitialFloor:  0,
-		BetweenFloors: false,
-	}}, 0)
-	test2 := tests.CreateTest("init_between_floors", tests.TestInitBetweenFloors, []simulator.InitializationParams{{
-		InitialFloor:  0,
-		BetweenFloors: true,
-	}}, 0)
-	engine_fail_test := tests.CreateTest("engine_failure", tests.TestEngineOutage, []simulator.InitializationParams{{
-		InitialFloor:  0,
-		BetweenFloors: false,
-	}, {
-		InitialFloor:  0,
-		BetweenFloors: false,
-	}}, 0)
-	hall_clear_one_test := tests.CreateTest("hall_clear_one", tests.TestHallClearOne, []simulator.InitializationParams{{
-		InitialFloor:  0,
-		BetweenFloors: false,
-	}}, 0)
-	door_timer_test := tests.CreateTest("door_timer", tests.TestDoorOpenTime, []simulator.InitializationParams{{
-		InitialFloor:  0,
-		BetweenFloors: false,
-	}}, 0)
-
-	obstruction_open_door_test := tests.CreateTest("obstruction_opens_door", tests.TestObstructionOpenDoor, []simulator.InitializationParams{{
-		InitialFloor:  0,
-		BetweenFloors: false,
-	}}, 0)
-
-	obstruction_buffer_order_test := tests.CreateSingleElevatorTest("obstruction_buffer_orders", tests.TestObstructionCompleteOrders)
-
-	empty_test := tests.CreateTest("empty_test", func() error {
+	test := tests.CreateTest("01", func() error {
 		//Function that does nothing, just sleeps forever.
 		select {}
 	}, []simulator.InitializationParams{{
@@ -101,23 +62,11 @@ func main() {
 		InitialFloor:  2,
 		BetweenFloors: false,
 	}}, 0)
-
-	if !cfg.NoTests {
-		runTest(&test_cab_backup)
-		runTest(&obstruction_buffer_order_test)
-		runTest(&obstruction_open_door_test)
-		runTest(&door_timer_test)
-		runTest(&hall_clear_one_test)
-		runTest(&test2)
-		runTest(&engine_fail_test)
-		runTest(&test)
-	} else {
-		runTest(&empty_test)
-	}
+	runTest(&test)
 }
 
 func runTest(test *tests.Test) {
-	fmt.Println("Beginning test", test.Id)
+	fmt.Println("Beginning test", test.Name)
 	tmux.Launch()
 
 	for i := 0; i < test.NumElevators(); i++ {
@@ -129,10 +78,10 @@ func runTest(test *tests.Test) {
 	studentprogram.InitalizeFromConfig(cfg.StudentProgramWaitTime, cfg.StudentProgramDir, cfg.GetAllElevatorConfigs(), test.NumElevators())
 	time.Sleep(1000 * time.Millisecond)
 
-	statemanager.EventListener(test.Id)
+	statemanager.EventListener(test.Name)
 
 	eval := test.Run()
-	fmt.Printf("Value of test %s was %t\n", test.Id, eval)
+	fmt.Printf("Value of test %s was %t\n", test.Name, eval)
 
 	simulator.TerminateAll()
 	statemanager.Kill()
