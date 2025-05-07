@@ -7,14 +7,17 @@ import (
 	"fmt"
 )
 
-var _elevatorStates []ElevatorState
+type States []ElevatorState
+type StateChannel chan States
+
+var _elevatorStates States
 var _testId string
 
 var _chan_Kill chan bool
 var _chan_Terminated chan bool
 var _pollAgain chan triggerMessage
 
-var _stateChannels []chan []ElevatorState
+var _stateChannels []StateChannel
 
 // On the arrival of a new trigger, check the loaded events and see if
 // any of them are listening on the current trigger. If yes,
@@ -27,9 +30,8 @@ func pollEvents(triggerType trigger, triggerParams interface{}) {
 
 }
 
-func RegisterStateChannel(stateChan chan []ElevatorState) {
+func RegisterStateChannel(stateChan chan States) {
 	_stateChannels = append(_stateChannels, stateChan)
-	stateChan <- _elevatorStates
 }
 
 func Init() {

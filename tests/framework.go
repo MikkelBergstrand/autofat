@@ -1,26 +1,25 @@
 package tests
 
 import (
+	"autofat/config"
 	"autofat/dsl"
 	"autofat/simulator"
 	"log"
 )
 
 type Test struct {
-	Name          string
-	InitialParams []simulator.InitializationParams
-	Func          func() error
-	Result        bool
-	PacketLoss    int
+	Name       string
+	Func       func() error
+	Result     bool
+	PacketLoss int
 }
 
 func CreateTest(id string, testFunc func() error, initParams []simulator.InitializationParams, packetLoss int) Test {
 	return Test{
-		Name:          id,
-		Func:          testFunc,
-		Result:        false,
-		InitialParams: initParams,
-		PacketLoss:    packetLoss,
+		Name:       id,
+		Func:       testFunc,
+		Result:     false,
+		PacketLoss: packetLoss,
 	}
 }
 
@@ -31,14 +30,10 @@ func CreateSingleElevatorTest(id string, testFunc func() error) Test {
 	}}, 0)
 }
 
-func (test *Test) Run() bool {
-	err := dsl.Load(test.Name)
+func (test *Test) Run(config config.Config) bool {
+	err := dsl.Load(test.Name, config)
 	if err != nil {
 		log.Fatal(err)
 	}
 	return true
-}
-
-func (test Test) NumElevators() int {
-	return len(test.InitialParams)
 }

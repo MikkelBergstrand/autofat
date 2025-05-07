@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"time"
 )
 
 type ElevatorInstance struct {
@@ -55,12 +54,6 @@ func main() {
 	}, []simulator.InitializationParams{{
 		InitialFloor:  0,
 		BetweenFloors: false,
-	}, {
-		InitialFloor:  1,
-		BetweenFloors: false,
-	}, {
-		InitialFloor:  2,
-		BetweenFloors: false,
 	}}, 0)
 	runTest(&test)
 }
@@ -69,18 +62,7 @@ func runTest(test *tests.Test) {
 	fmt.Println("Beginning test", test.Name)
 	tmux.Launch()
 
-	for i := 0; i < test.NumElevators(); i++ {
-		simulator.Init(cfg.GetElevatorConfig(i), test.InitialParams[i])
-		simulator.Run(i)
-	}
-
-	time.Sleep(500 * time.Millisecond)
-	studentprogram.InitalizeFromConfig(cfg.StudentProgramWaitTime, cfg.StudentProgramDir, cfg.GetAllElevatorConfigs(), test.NumElevators())
-	time.Sleep(1000 * time.Millisecond)
-
-	statemanager.EventListener(test.Name)
-
-	eval := test.Run()
+	eval := test.Run(cfg)
 	fmt.Printf("Value of test %s was %t\n", test.Name, eval)
 
 	simulator.TerminateAll()
