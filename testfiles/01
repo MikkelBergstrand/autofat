@@ -1,5 +1,5 @@
 echo(0);
-@ = [1];
+@ = [1, 2];
 await(() bool {
     return false;
 });
