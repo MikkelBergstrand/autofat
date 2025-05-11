@@ -1,7 +1,9 @@
 package variables
 
 import (
+	"autofat/statemanager"
 	"log"
+	"time"
 )
 
 type Type int
@@ -14,6 +16,7 @@ const (
 	STATE
 	CHAN
 	ARRAY
+	ORDERTYPE
 	NONE
 )
 
@@ -33,6 +36,8 @@ func (t Type) String() string {
 		return "chan"
 	case ARRAY:
 		return "array"
+	case ORDERTYPE:
+		return "type"
 	case INVALID:
 		return ""
 	}
@@ -50,3 +55,15 @@ type SymbolTableEntry struct {
 	Offset int
 	Type   TypeDefinition
 }
+
+type AwaitVal struct {
+	StateChan statemanager.StateChannel
+	Timeout   *time.Timer
+}
+
+// Potential result of an await evaluation
+const (
+	AWAIT_STATE_OK    = 0
+	AWAIT_STATE_NOTOK = 1
+	AWAIT_TIMEOUT     = 2
+)

@@ -59,6 +59,7 @@ func Load(test_file string, config config.Config) error {
 	storage := storage.NewStorage()
 	runtime := runtime.New(config)
 
+	generateGlobalVariables(runtime, &storage)
 	generateGlobalFunctions(runtime, &storage)
 
 	start = time.Now()

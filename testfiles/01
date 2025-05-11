@@ -1,5 +1,7 @@
 echo(0);
-@ = [1, 2];
+@ = [0];
 await(() bool {
-    return false;
-});
+    return floor([0]) == 3 & statuslight([0], CAB, 0) == 1;
+}, 2000);
+
+echo(2);

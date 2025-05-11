@@ -75,7 +75,7 @@ func (ar *ActivationRegister) PopAddress() {
 	ar.StackTop = ar.AddressStack.Pop()
 }
 
-func (runtime *RuntimeInstance) PushCall(func_address_stack structure.Stack[int]) {
+func (runtime *RuntimeInstance) PushCall(func_address_stack structure.Stack[int], state *statemanager.States) {
 	// The address stack in the function must have an address stack equal to how it looked
 	// when the function was defined.
 	top_of_callstack := runtime.CallStack.Peek()
@@ -89,6 +89,7 @@ func (runtime *RuntimeInstance) PushCall(func_address_stack structure.Stack[int]
 		SavedPC:      runtime.Programcounter + 1,
 		AddressStack: addr_stack,
 		AddressBegin: top_of_callstack.StackTop + 1,
+		State: state,
 	})
 
 	//fmt.Println("PushCall with AR = ", runtime.CallStack.Peek(), func_address_stack)

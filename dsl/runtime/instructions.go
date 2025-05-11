@@ -4,6 +4,7 @@ import (
 	"autofat/dsl/color"
 	"autofat/dsl/structure"
 	"autofat/dsl/variables"
+	"autofat/elevio"
 	"autofat/simulator"
 	"autofat/statemanager"
 	"autofat/studentprogram"
@@ -217,7 +218,7 @@ func (instr *InstrCallFunction) Execute(runtime *RuntimeInstance) {
 	//fmt.Println("Bound ret val to", top_ar.Retval)
 
 	// Account for prelude length
-	runtime.PushCall(func_ptr.AddressStack)
+	runtime.PushCall(func_ptr.AddressStack, instr.State)
 
 	// Once "inside" the function, load argument values
 	for i := range arg_values {
@@ -263,36 +264,49 @@ type InstrNOP struct{}
 func (instr *InstrNOP) Execute(runtime *RuntimeInstance) {}
 
 type InstrAwait struct {
-	Channel       variables.Symbol
-	StateFunction variables.Symbol
-	RetVal        variables.Symbol
+	Channel            variables.Symbol
+	StateFunction      variables.Symbol
+	ConditionFuncValue variables.Symbol
+	Timeout            variables.Symbol
 }
 
 func (instr *InstrAwait) Execute(runtime *RuntimeInstance) {
 	// Wait for new state
-	stateChan := runtime.Get(instr.Channel).(statemanager.StateChannel)
-	states, close_chan := <-stateChan
-	if !close_chan {
+	await_obj := runtime.Get(instr.Channel).(variables.AwaitVal)
+	stateChan := await_obj.StateChan
+	timeout := await_obj.Timeout
+
+	var states statemanager.States = nil
+	closed := false
+	select {
+	case states, closed = <-stateChan:
+		if !closed {
+			return
+		}
+	case <-timeout.C:
+		fmt.Println("Timeout!")
+		runtime.Set(instr.Timeout, true)
 		return
 	}
 	call := InstrCallFunction{
 		SymbolicLabel: instr.StateFunction,
 		State:         &states,
-		RetVal:        instr.RetVal,
+		RetVal:        instr.ConditionFuncValue,
 	}
 	call.Execute(runtime)
 }
 
 type InstrEndAwait struct {
-	Label      string           // Label to start of await, if the await must be ran again.
-	AwaitValue variables.Symbol //Return value of state function.
+	Label              string // Label to start of await, if the await must be ran again.
+	Timeout            variables.Symbol
+	ConditionFuncValue variables.Symbol //Return value of state function.
 }
 
 func (instr *InstrEndAwait) Execute(runtime *RuntimeInstance) {
-	await_val := runtime.GetBool(instr.AwaitValue)
+	await_val := runtime.GetBool(instr.ConditionFuncValue)
 
 	fmt.Println(await_val)
-	if !await_val {
+	if !runtime.GetBool(instr.Timeout) && !await_val {
 		jmp := InstrJmp{
 			Label: instr.Label,
 		}
@@ -301,16 +315,21 @@ func (instr *InstrEndAwait) Execute(runtime *RuntimeInstance) {
 }
 
 type InstrStateListen struct {
-	Symbol variables.Symbol
+	Symbol         variables.Symbol
+	TimeoutSeconds variables.Symbol
 }
 
 func (instr *InstrStateListen) Execute(rt *RuntimeInstance) {
 	// Initialize a new state capturing channel
 	// if none exist at the symbol location.
 	if rt.Get(instr.Symbol) == nil {
+		timeout := time.NewTimer(time.Duration(rt.GetInt(instr.TimeoutSeconds) * int(time.Millisecond)))
 		stateChan := make(statemanager.StateChannel)
 		statemanager.RegisterStateChannel(stateChan)
-		rt.Set(instr.Symbol, stateChan)
+		rt.Set(instr.Symbol, variables.AwaitVal{
+			Timeout:   timeout,
+			StateChan: stateChan,
+		})
 	}
 }
 
@@ -350,13 +369,12 @@ func (instr *InstrInitializeElevators) Execute(rt *RuntimeInstance) {
 	statemanager.EventListener("LOL")
 }
 
-type InstrCollapseStateParam struct {
-	ArraySymbol  variables.Symbol
-	Result       variables.Symbol
-	CollapseFunc func(statemanager.ElevatorState) int
+type InstrGetFloor struct {
+	ArraySymbol variables.Symbol
+	Result      variables.Symbol
 }
 
-func (instr *InstrCollapseStateParam) Execute(rt *RuntimeInstance) {
+func (instr *InstrGetFloor) Execute(rt *RuntimeInstance) {
 	arr := rt.Get(instr.ArraySymbol).([]int)
 	state := *rt.GetState()
 
@@ -365,13 +383,48 @@ func (instr *InstrCollapseStateParam) Execute(rt *RuntimeInstance) {
 		return
 	}
 
-	val := instr.CollapseFunc(state[0])
+	val := state[0].Floor
 	for i := 1; i < len(arr); i++ {
-		if instr.CollapseFunc(state[0]) != val {
+		if state[i].Floor != val {
 			rt.Set(instr.Result, -1)
 			return
 		}
 	}
 
 	rt.Set(instr.Result, val)
+}
+
+type InstrGetStatusLight struct {
+	ArraySymbol variables.Symbol
+	OrderType   variables.Symbol
+	Floor       variables.Symbol
+	Result      variables.Symbol
+}
+
+func (instr *InstrGetStatusLight) Execute(rt *RuntimeInstance) {
+	arr := rt.Get(instr.ArraySymbol).([]int)
+	state := *rt.GetState()
+
+	if len(arr) == 0 {
+		rt.Set(instr.Result, -1)
+		return
+	}
+
+	floor := rt.GetInt(instr.Floor)
+	ordertype := rt.Get(instr.OrderType).(elevio.ButtonType)
+
+	val := state[0].OrderLight(ordertype, floor)
+	for i := 1; i < len(arr); i++ {
+		if state[i].OrderLight(ordertype, floor) != val {
+			rt.Set(instr.Result, -1)
+			return
+		}
+	}
+
+	if !val {
+		rt.Set(instr.Result, 0)
+	} else {
+		rt.Set(instr.Result, 1)
+	}
+
 }

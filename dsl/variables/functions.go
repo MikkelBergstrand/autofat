@@ -66,6 +66,10 @@ func (a TypeDefinition) Equals(b TypeDefinition) bool {
 	return true
 }
 
+func GetBaseTypeDef(t Type) TypeDefinition {
+	return TypeDefinition{BaseType: t}
+}
+
 // Holds the label of the function it is referring to.
 type FunctionVar struct {
 	Label        string
