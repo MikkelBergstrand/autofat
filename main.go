@@ -65,7 +65,9 @@ func runTest(test *tests.Test) {
 	eval := test.Run(cfg)
 	fmt.Printf("Value of test %s was %t\n", test.Name, eval)
 
+	fmt.Println("Terminating simulators")
 	simulator.TerminateAll()
+	fmt.Println("Terminating statemanager")
 	statemanager.Kill()
 	studentprogram.KillAll()
 }

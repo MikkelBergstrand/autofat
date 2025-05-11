@@ -264,7 +264,7 @@ type InstrNOP struct{}
 func (instr *InstrNOP) Execute(runtime *RuntimeInstance) {}
 
 type InstrAwait struct {
-	Channel            variables.Symbol
+	AwaitVal           variables.Symbol
 	StateFunction      variables.Symbol
 	ConditionFuncValue variables.Symbol
 	Timeout            variables.Symbol
@@ -272,15 +272,16 @@ type InstrAwait struct {
 
 func (instr *InstrAwait) Execute(runtime *RuntimeInstance) {
 	// Wait for new state
-	await_obj := runtime.Get(instr.Channel).(variables.AwaitVal)
+	await_obj := runtime.Get(instr.AwaitVal).(variables.AwaitVal)
 	stateChan := await_obj.StateChan
 	timeout := await_obj.Timeout
 
 	var states statemanager.States = nil
-	closed := false
+	more := true
 	select {
-	case states, closed = <-stateChan:
-		if !closed {
+	case states, more = <-stateChan:
+		if !more {
+			fmt.Println("Closing await")
 			return
 		}
 	case <-timeout.C:
@@ -288,6 +289,7 @@ func (instr *InstrAwait) Execute(runtime *RuntimeInstance) {
 		runtime.Set(instr.Timeout, true)
 		return
 	}
+
 	call := InstrCallFunction{
 		SymbolicLabel: instr.StateFunction,
 		State:         &states,
@@ -300,6 +302,7 @@ type InstrEndAwait struct {
 	Label              string // Label to start of await, if the await must be ran again.
 	Timeout            variables.Symbol
 	ConditionFuncValue variables.Symbol //Return value of state function.
+	AwaitVal           variables.Symbol
 }
 
 func (instr *InstrEndAwait) Execute(runtime *RuntimeInstance) {
@@ -311,22 +314,24 @@ func (instr *InstrEndAwait) Execute(runtime *RuntimeInstance) {
 			Label: instr.Label,
 		}
 		jmp.Execute(runtime)
+	} else {
+		await := runtime.Get(instr.AwaitVal).(variables.AwaitVal)
+		statemanager.UnregisterStateChannel(await.StateChan)
 	}
 }
 
 type InstrStateListen struct {
-	Symbol         variables.Symbol
+	AwaitVal       variables.Symbol
 	TimeoutSeconds variables.Symbol
 }
 
 func (instr *InstrStateListen) Execute(rt *RuntimeInstance) {
 	// Initialize a new state capturing channel
 	// if none exist at the symbol location.
-	if rt.Get(instr.Symbol) == nil {
+	if rt.Get(instr.AwaitVal) == nil {
 		timeout := time.NewTimer(time.Duration(rt.GetInt(instr.TimeoutSeconds) * int(time.Millisecond)))
-		stateChan := make(statemanager.StateChannel)
-		statemanager.RegisterStateChannel(stateChan)
-		rt.Set(instr.Symbol, variables.AwaitVal{
+		stateChan := statemanager.RegisterStateChannel()
+		rt.Set(instr.AwaitVal, variables.AwaitVal{
 			Timeout:   timeout,
 			StateChan: stateChan,
 		})

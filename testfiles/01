@@ -1,7 +1,19 @@
-echo(0);
 @ = [0];
+
 await(() bool {
-    return floor([0]) == 3 & statuslight([0], CAB, 0) == 1;
-}, 2000);
+    return floor([0]) == 0;
+}, 10000);
+
+await(() bool {
+    return floor([0]) == 1;
+}, 10000);
+
+await(() bool {
+    return floor([0]) == 2;
+}, 10000);
+
+await(() bool {
+    return floor([0]) == 3;
+}, 10000);
 
 echo(2);

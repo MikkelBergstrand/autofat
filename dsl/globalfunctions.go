@@ -57,11 +57,11 @@ func await(storage *storage.Compiler) {
 	storage.LoadInstruction(&runtime.InstrLoadImmediate{Dest: chan_sym, Value: nil})
 	label := storage.NewAutoLabel()
 	storage.LoadLabeledInstruction(&runtime.InstrStateListen{
-		Symbol:         chan_sym,
+		AwaitVal:       chan_sym,
 		TimeoutSeconds: timeout,
 	}, label)
 	storage.LoadInstruction(&runtime.InstrAwait{
-		Channel:            chan_sym,
+		AwaitVal:           chan_sym,
 		StateFunction:      state_func,
 		ConditionFuncValue: cond_func_ret_val,
 		Timeout:            timeout_sym,
@@ -70,6 +70,7 @@ func await(storage *storage.Compiler) {
 		Label:              label,
 		ConditionFuncValue: cond_func_ret_val,
 		Timeout:            timeout_sym,
+		AwaitVal:           chan_sym,
 	})
 	storage.LoadInstruction(&runtime.InstrExitFunction{})
 }

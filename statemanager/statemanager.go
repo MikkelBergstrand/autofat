@@ -7,15 +7,19 @@ import (
 	"fmt"
 )
 
+const BUFFER_SIZE = 10
+
 type States []ElevatorState
 type StateChannel chan States
 
 var _elevatorStates States
-var _testId string
 
 var _chan_Kill chan bool
 var _chan_Terminated chan bool
 var _pollAgain chan triggerMessage
+
+var _chan_addListener chan StateChannel
+var _chan_removeListener chan StateChannel
 
 var _stateChannels []StateChannel
 
@@ -25,21 +29,51 @@ func pollEvents(triggerType trigger, triggerParams interface{}) {
 	fmt.Println("Polling events of type", triggerType, "params: ", triggerParams)
 
 	for _, stateChan := range _stateChannels {
+		fmt.Println("Sending state...")
 		stateChan <- _elevatorStates
+		fmt.Println("Done")
 	}
 
 }
 
-func RegisterStateChannel(stateChan chan States) {
-	_stateChannels = append(_stateChannels, stateChan)
+func RegisterStateChannel() StateChannel {
+	ret := make(StateChannel, BUFFER_SIZE)
+	fmt.Println("Adding listener")
+	_chan_addListener <- ret
+	return ret
+}
+
+func UnregisterStateChannel(ch StateChannel) {
+	fmt.Println("Removing new listener")
+	_chan_removeListener <- ch
 }
 
 func Init() {
 	_pollAgain = make(chan triggerMessage)
+	_chan_addListener = make(chan StateChannel)
+	_chan_removeListener = make(chan StateChannel)
 	go func() {
 		for {
-			trigger := <-_pollAgain
-			pollEvents(trigger.Type, trigger.Params)
+			select {
+			case trigger, more := <-_pollAgain:
+				pollEvents(trigger.Type, trigger.Params)
+				if !more {
+					return
+				}
+			case ch := <-_chan_addListener:
+				_stateChannels = append(_stateChannels, ch)
+			case ch := <-_chan_removeListener:
+				close(ch)
+				idx := -1
+				for i, ch := range _stateChannels {
+					if _stateChannels[i] == ch {
+						idx = i
+					}
+				}
+				if idx >= 0 {
+					_stateChannels = append(_stateChannels[:idx], _stateChannels[idx+1:]...)
+				}
+			}
 		}
 	}()
 }
@@ -49,7 +83,6 @@ func EventListener(
 ) {
 	_chan_Kill = make(chan bool)
 	_chan_Terminated = make(chan bool)
-	_testId = testId
 
 	_elevatorStates = make([]ElevatorState, 0)
 
@@ -133,7 +166,15 @@ func listenToElevators(elevatorId int, simulatedElevator *simulator.Simulator, s
 }
 
 func Kill() {
-	for range _elevatorStates {
+	close(_pollAgain)
+
+	for i := range _stateChannels {
+		fmt.Println("Closing state channel", i, "of", len(_stateChannels))
+		close(_stateChannels[i])
+	}
+
+	for i := range _elevatorStates {
+		fmt.Println("Closing elev poll channel", i)
 		_chan_Kill <- true
 	}
 	<-_chan_Terminated
