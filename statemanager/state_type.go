@@ -5,6 +5,8 @@ import (
 	"autofat/studentprogram"
 )
 
+type ElevatorMode int
+
 type ElevatorState struct {
 	Status      studentprogram.ProgramStatus
 	FloorLamp   int

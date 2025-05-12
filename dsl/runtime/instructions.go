@@ -431,5 +431,21 @@ func (instr *InstrGetStatusLight) Execute(rt *RuntimeInstance) {
 	} else {
 		rt.Set(instr.Result, 1)
 	}
+}
 
+type InstrExit struct {
+	Value variables.Symbol
+}
+
+func (instr *InstrExit) Execute(rt *RuntimeInstance) {
+	rt.Exit(rt.GetBool(instr.Value))
+}
+
+type InstrSleep struct {
+	Duration variables.Symbol
+}
+
+func (instr *InstrSleep) Execute(rt *RuntimeInstance) {
+	msec := rt.GetInt(instr.Duration)
+	time.Sleep(time.Duration(msec) * time.Millisecond)
 }

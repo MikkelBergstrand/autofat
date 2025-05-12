@@ -56,10 +56,10 @@ func Init() {
 		for {
 			select {
 			case trigger, more := <-_pollAgain:
-				pollEvents(trigger.Type, trigger.Params)
 				if !more {
 					return
 				}
+				pollEvents(trigger.Type, trigger.Params)
 			case ch := <-_chan_addListener:
 				_stateChannels = append(_stateChannels, ch)
 			case ch := <-_chan_removeListener:
@@ -177,5 +177,8 @@ func Kill() {
 		fmt.Println("Closing elev poll channel", i)
 		_chan_Kill <- true
 	}
-	<-_chan_Terminated
+
+	for range _elevatorStates {
+		<-_chan_Terminated
+	}
 }

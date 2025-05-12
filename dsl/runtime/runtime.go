@@ -11,6 +11,8 @@ import (
 	"reflect"
 )
 
+const RT_EXIT = 1000000
+
 type Runtime struct {
 	Instructions []Instruction
 	Labels       map[string]int
@@ -19,6 +21,7 @@ type Runtime struct {
 }
 
 type RuntimeInstance struct {
+	Retval         bool
 	Runtime        *Runtime
 	Programcounter int
 	CallStack      structure.Stack[ActivationRegister]
@@ -51,6 +54,7 @@ func (runtime *Runtime) NewInstance(entryPoint int) RuntimeInstance {
 	}
 	first_ar.AddressStack.Push(0)
 	instance := RuntimeInstance{
+		Retval:         true,
 		Programcounter: entryPoint,
 		Runtime:        runtime,
 	}
@@ -89,7 +93,7 @@ func (runtime *RuntimeInstance) PushCall(func_address_stack structure.Stack[int]
 		SavedPC:      runtime.Programcounter + 1,
 		AddressStack: addr_stack,
 		AddressBegin: top_of_callstack.StackTop + 1,
-		State: state,
+		State:        state,
 	})
 
 	//fmt.Println("PushCall with AR = ", runtime.CallStack.Peek(), func_address_stack)
@@ -117,7 +121,7 @@ func (runTime *Runtime) NextInstruction() int {
 	return len(runTime.Instructions)
 }
 
-func (runtime *RuntimeInstance) Run() {
+func (runtime *RuntimeInstance) Run() bool {
 	fmt.Println(runtime.Runtime.Labels)
 	for i, instr := range runtime.Runtime.Instructions {
 		fmt.Println(i, reflect.TypeOf(instr), instr)
@@ -128,6 +132,8 @@ func (runtime *RuntimeInstance) Run() {
 		runtime.Runtime.Instructions[runtime.Programcounter].Execute(runtime)
 		runtime.Programcounter += 1
 	}
+
+	return runtime.Retval
 }
 
 func (r *RuntimeInstance) AddressFromSymbol(symbol variables.Symbol) int {
@@ -175,6 +181,8 @@ func (s *RuntimeInstance) Set(symbol variables.Symbol, value any) {
 	//fmt.Println("Set", symbol, "value=", value, "addr=", addr)
 }
 
-func (r *Runtime) EvaluateStateFunction(f variables.FunctionVar, states []statemanager.ElevatorState) bool {
-	return true
+func (rt *RuntimeInstance) Exit(value bool) {
+	rt.Programcounter = RT_EXIT
+	rt.Retval = value
+
 }

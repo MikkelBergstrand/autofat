@@ -31,9 +31,9 @@ func CreateSingleElevatorTest(id string, testFunc func() error) Test {
 }
 
 func (test *Test) Run(config config.Config) bool {
-	err := dsl.Load(test.Name, config)
+	val, err := dsl.Load(test.Name, config)
 	if err != nil {
 		log.Fatal(err)
 	}
-	return true
+	return val
 }

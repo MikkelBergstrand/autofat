@@ -13,10 +13,10 @@ import (
 	"time"
 )
 
-func Load(test_file string, config config.Config) error {
+func Load(test_file string, config config.Config) (bool, error) {
 	file_contents, err := os.ReadFile("testfiles/" + test_file)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	start := time.Now()
@@ -32,7 +32,7 @@ func Load(test_file string, config config.Config) error {
 			_exit = true
 		case tokens.ItemError:
 			log.Fatal(c)
-			return err
+			return false, err
 		default:
 			word_stream = append(word_stream, c)
 		}
@@ -59,7 +59,7 @@ func Load(test_file string, config config.Config) error {
 	storage := storage.NewStorage()
 	runtime := runtime.New(config)
 
-	generateGlobalVariables(runtime, &storage)
+	generateGlobalVariables(&storage)
 	generateGlobalFunctions(runtime, &storage)
 
 	start = time.Now()
@@ -72,8 +72,8 @@ func Load(test_file string, config config.Config) error {
 
 	start = time.Now()
 	primary := runtime.NewInstance(entryPoint)
-	primary.Run()
+	val := primary.Run()
 	fmt.Println("Program finished in", time.Since(start))
 
-	return nil
+	return val, nil
 }

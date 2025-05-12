@@ -1,5 +1,8 @@
+
 @ = [0];
 
+sleep(10000);
+exit(true);
 await(() bool {
     return floor([0]) == 0;
 }, 10000);

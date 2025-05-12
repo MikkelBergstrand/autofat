@@ -136,6 +136,9 @@ func Run(id int) {
 }
 
 func TerminateAll() {
+	if len(_simulators) == 0 {
+		return
+	}
 	for id := len(_simulators) - 1; id >= 0; id-- {
 		go func() {
 			//Kill all polling channels.

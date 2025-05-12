@@ -8,10 +8,22 @@ import (
 	"log"
 )
 
+type params map[string]variables.Symbol
+
 func defineFunction(rt *runtime.Runtime, compiler *storage.Compiler, fn_name string, fn_def variables.TypeDefinition,
-	instructions func(compiler *storage.Compiler)) {
+	instructions func(compiler *storage.Compiler, p params)) {
 	compiler.NewFunction(fn_name, fn_def)
-	instructions(compiler)
+	sym_params := make(params)
+
+	for _, arg := range fn_def.ArgumentList {
+		sym, err := compiler.GetNamedSymbol(arg.Identifier)
+		if err != nil {
+			log.Fatal(err)
+		}
+		sym_params[arg.Identifier] = sym
+	}
+
+	instructions(compiler, sym_params)
 	compiler.DestroyFunctionScope(rt)
 }
 
@@ -26,29 +38,19 @@ func defineGlobalVar(compiler *storage.Compiler, name string, _type variables.Ty
 	})
 }
 
-func echo(storage *storage.Compiler) {
-	A, err := storage.GetNamedSymbol("i")
-	if err != nil {
-		log.Fatal(err)
-	}
+func echo(storage *storage.Compiler, params params) {
 	storage.LoadInstruction(&runtime.InstructionEcho{
-		A: A,
+		A: params["i"],
 	})
 	storage.LoadInstruction(&runtime.InstrExitFunction{})
 }
 
-func await(storage *storage.Compiler) {
+func await(storage *storage.Compiler, params params) {
 	//Create boolean value to hold return value of the await.
 	//Return value of await can be 3 values: OK (statefunc == true) ,NOTOK (statefunc == false) or TIMEOUT
 	cond_func_ret_val := storage.NewLiteral(variables.TypeDefinition{BaseType: variables.INT})
-	state_func, err := storage.GetNamedSymbol("state_func")
-	if err != nil {
-		log.Fatal(err)
-	}
-	timeout, err := storage.GetNamedSymbol("timeout")
-	if err != nil {
-		log.Fatal(err)
-	}
+	state_func := params["state_func"]
+	timeout := params["timeout"]
 
 	chan_sym := storage.NewLiteral(variables.TypeDefinition{BaseType: variables.CHAN})
 	timeout_sym := storage.NewLiteral(variables.GetBaseTypeDef(variables.BOOL))
@@ -72,14 +74,11 @@ func await(storage *storage.Compiler) {
 		Timeout:            timeout_sym,
 		AwaitVal:           chan_sym,
 	})
-	storage.LoadInstruction(&runtime.InstrExitFunction{})
+	storage.LoadInstruction(&runtime.InstrExitFunction{RetVal: cond_func_ret_val})
 }
 
-func floor(compiler *storage.Compiler) {
-	elevs, err := compiler.GetNamedSymbol("i")
-	if err != nil {
-		log.Fatal(err)
-	}
+func floor(compiler *storage.Compiler, params params) {
+	elevs := params["i"]
 	result := compiler.NewLiteral(variables.GetBaseTypeDef(variables.INT))
 
 	compiler.LoadInstruction(&runtime.InstrGetFloor{
@@ -89,13 +88,16 @@ func floor(compiler *storage.Compiler) {
 	compiler.LoadInstruction(&runtime.InstrExitFunction{RetVal: result})
 }
 
-func statuslight(compiler *storage.Compiler) {
-	elevs, err := compiler.GetNamedSymbol("i")
-	if err != nil {
-		log.Fatal(err)
-	}
-	floor, _ := compiler.GetNamedSymbol("floor")
-	ordertype, _ := compiler.GetNamedSymbol("ordertype")
+func exit(compiler *storage.Compiler, params params) {
+	retval := params["value"]
+	compiler.LoadInstruction(&runtime.InstrExit{Value: retval})
+}
+
+func statuslight(compiler *storage.Compiler, params params) {
+
+	elevs := params["i"]
+	floor := params["floor"]
+	ordertype := params["ordertype"]
 
 	result := compiler.NewLiteral(variables.GetBaseTypeDef(variables.BOOL))
 
@@ -108,7 +110,12 @@ func statuslight(compiler *storage.Compiler) {
 	compiler.LoadInstruction(&runtime.InstrExitFunction{RetVal: result})
 }
 
-func generateGlobalVariables(rt *runtime.Runtime, compiler *storage.Compiler) {
+func sleep(compiler *storage.Compiler, params params) {
+	millisec := params["milliseconds"]
+	compiler.LoadInstruction(&runtime.InstrSleep{Duration: millisec})
+	compiler.LoadInstruction(&runtime.InstrExitFunction{})
+}
+func generateGlobalVariables(compiler *storage.Compiler) {
 	defineGlobalVar(compiler, "CAB", variables.ORDERTYPE, elevio.BT_Cab)
 	defineGlobalVar(compiler, "HALLUP", variables.ORDERTYPE, elevio.BT_HallUp)
 	defineGlobalVar(compiler, "HALLDOWN", variables.ORDERTYPE, elevio.BT_HallDown)
@@ -144,7 +151,7 @@ func generateGlobalFunctions(rt *runtime.Runtime, storage *storage.Compiler) {
 				Identifier: "timeout",
 			},
 		},
-		ReturnType: &variables.TypeDefinition{BaseType: variables.NONE},
+		ReturnType: &variables.TypeDefinition{BaseType: variables.BOOL},
 	}, await)
 
 	//Create function to check floor
@@ -178,4 +185,30 @@ func generateGlobalFunctions(rt *runtime.Runtime, storage *storage.Compiler) {
 		},
 		ReturnType: &variables.TypeDefinition{BaseType: variables.INT},
 	}, statuslight)
+
+	defineFunction(rt, storage, "exit", variables.TypeDefinition{
+		BaseType: variables.FUNC,
+		ArgumentList: []variables.Argument{
+			{
+				Definition: variables.TypeDefinition{
+					BaseType: variables.BOOL,
+				},
+				Identifier: "value",
+			},
+		},
+		ReturnType: &variables.TypeDefinition{BaseType: variables.NONE},
+	}, exit)
+
+	defineFunction(rt, storage, "sleep", variables.TypeDefinition{
+		BaseType: variables.FUNC,
+		ArgumentList: []variables.Argument{
+			{
+				Definition: variables.TypeDefinition{
+					BaseType: variables.INT,
+				},
+				Identifier: "millisec",
+			},
+		},
+		ReturnType: &variables.TypeDefinition{BaseType: variables.NONE},
+	}, sleep)
 }
