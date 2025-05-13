@@ -73,3 +73,7 @@ const (
 	AWAIT_STATE_NOTOK = 1
 	AWAIT_TIMEOUT     = 2
 )
+
+type Thread struct {
+	Done chan bool
+}

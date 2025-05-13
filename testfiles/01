@@ -1,9 +1,12 @@
-
-int[] arr = [0, 1, 2];
-bool[] arr2 = [];
-
 func sleepy(int ms) int {
   sleep(ms);
   echo(ms);
   return 0;
 }
+
+echo(1);
+sync([
+  ~sleepy(0),
+  ~sleepy(2000),
+  ~sleepy(3000)
+]);

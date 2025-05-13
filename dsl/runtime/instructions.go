@@ -233,13 +233,19 @@ func (instr *InstrCallFunction) Execute(runtime *RuntimeInstance) {
 		}
 		jmp_instr.Execute(runtime)
 	} else {
+		//Get thread object
+		done := make(chan bool)
+		runtime.Set(instr.RetVal, variables.Thread{
+			Done: done,
+		})
+
 		// Create a new runtime
 		runtime = runtime.Fork(runtime.Runtime.Labels[func_ptr.Label], func_ptr.AddressStack)
 		// Set arguments in new runtime
 		for i := range arg_values {
 			runtime.Set(variables.Symbol{Offset: i, Scope: 0, Type: instr.Arguments[i].Type}, arg_values[i])
 		}
-		go runtime.Run()
+		go runtime.Run(done)
 		fmt.Println("Thread forked!")
 	}
 
@@ -269,6 +275,7 @@ func (instr *InstrExitFunction) Execute(runtime *RuntimeInstance) {
 	//If callstack is empty, this thread is done.
 	if len(runtime.CallStack) == 0 {
 		runtime.Programcounter = RT_EXIT
+		fmt.Println("Exiting thread.")
 	} else {
 		top_ar := runtime.CallStack.PeekRef()
 		//fmt.Println("Ret val on exit", top_ar.Retval, ret_val)
@@ -467,4 +474,35 @@ type InstrSleep struct {
 func (instr *InstrSleep) Execute(rt *RuntimeInstance) {
 	msec := rt.GetInt(instr.Duration)
 	time.Sleep(time.Duration(msec) * time.Millisecond)
+}
+
+type InstrSync struct {
+	Threads variables.Symbol
+}
+
+func (instr *InstrSync) Execute(rt *RuntimeInstance) {
+	threads := rt.Get(instr.Threads).([]any)
+	n_done_threads := 0
+	n_threads := len(threads)
+	sig := make(chan bool)
+
+	for _, thread := range threads {
+		thread := thread.(variables.Thread)
+		go func() {
+			fmt.Println("Waiting for thread to be done.")
+			<-thread.Done
+			fmt.Println("Done!")
+			sig <- true
+		}()
+	}
+
+	for {
+		<-sig
+		n_done_threads += 1
+		fmt.Println("Done threads: ", n_done_threads)
+		if n_done_threads == n_threads {
+			break
+		}
+	}
+
 }

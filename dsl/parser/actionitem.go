@@ -469,7 +469,11 @@ func DoActions(rule_id int, words []any, storage *storage.Compiler, r *runtime.R
 	//Fork function call: FunctionCall -> ~ FunctionHeader
 	case 75:
 		func_call := words[1].(FunctionCall)
-		ret_val := storage.NewLiteral(*func_call.FuncSymbol.Type.ReturnType)
+		ret_val := storage.NewLiteral(variables.GetBaseTypeDef(variables.THREAD))
+		storage.LoadInstruction(&runtime.InstrLoadImmediate{
+			Dest:  ret_val,
+			Value: nil, // will be set as a Thread object in the runtime.
+		})
 		storage.LoadInstruction(&runtime.InstrCallFunction{
 			RetVal:        ret_val,
 			Arguments:     func_call.ArgList,

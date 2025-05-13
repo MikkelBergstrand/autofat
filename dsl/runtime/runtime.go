@@ -122,14 +122,14 @@ func (runTime *Runtime) NextInstruction() int {
 	return len(runTime.Instructions)
 }
 
-func (runtime *RuntimeInstance) Run() bool {
+func (runtime *RuntimeInstance) Run(done chan bool) {
 	for runtime.Programcounter != RT_EXIT+1 {
 		//color.Println(color.Yellow, reflect.TypeOf(runtime.Runtime.Instructions[runtime.Programcounter]), "PC = ", runtime.Programcounter)
 		runtime.Runtime.Instructions[runtime.Programcounter].Execute(runtime)
 		runtime.Programcounter += 1
 	}
 
-	return runtime.Retval
+	done <- runtime.Retval
 }
 
 func (runtime *RuntimeInstance) Fork(entryPoint int, caller_address_stack structure.Stack[int]) *RuntimeInstance {

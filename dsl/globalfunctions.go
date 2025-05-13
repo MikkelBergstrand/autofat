@@ -115,6 +115,13 @@ func sleep(compiler *storage.Compiler, params params) {
 	compiler.LoadInstruction(&runtime.InstrSleep{Duration: millisec})
 	compiler.LoadInstruction(&runtime.InstrExitFunction{})
 }
+
+func sync(compiler *storage.Compiler, params params) {
+	threads := params["threads"]
+	compiler.LoadInstruction(&runtime.InstrSync{Threads: threads})
+	compiler.LoadInstruction(&runtime.InstrExitFunction{})
+}
+
 func generateGlobalVariables(compiler *storage.Compiler) {
 	defineGlobalVar(compiler, "CAB", variables.ORDERTYPE, elevio.BT_Cab)
 	defineGlobalVar(compiler, "HALLUP", variables.ORDERTYPE, elevio.BT_HallUp)
@@ -211,4 +218,18 @@ func generateGlobalFunctions(rt *runtime.Runtime, storage *storage.Compiler) {
 		},
 		ReturnType: &variables.TypeDefinition{BaseType: variables.NONE},
 	}, sleep)
+
+	defineFunction(rt, storage, "sync", variables.TypeDefinition{
+		BaseType: variables.FUNC,
+		ArgumentList: []variables.Argument{
+			{
+				Definition: variables.TypeDefinition{
+					BaseType: variables.THREAD,
+					IsArray:  true,
+				},
+				Identifier: "threads",
+			},
+		},
+		ReturnType: &variables.TypeDefinition{BaseType: variables.NONE},
+	}, sync)
 }

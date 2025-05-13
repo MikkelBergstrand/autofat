@@ -14,6 +14,7 @@ import (
 )
 
 func Load(test_file string, config config.Config) (bool, error) {
+	fmt.Println("Loading...")
 	file_contents, err := os.ReadFile("testfiles/" + test_file)
 	if err != nil {
 		return false, err
@@ -72,8 +73,10 @@ func Load(test_file string, config config.Config) (bool, error) {
 
 	start = time.Now()
 	primary := runtime.NewInstance(entryPoint, nil, []int{})
-	val := primary.Run()
+	done := make(chan bool)
+	go primary.Run(done)
+	output := <-done
 	fmt.Println("Program finished in", time.Since(start))
 
-	return val, nil
+	return output, nil
 }
