@@ -193,7 +193,8 @@ type InstructionEcho struct {
 }
 
 func (instr *InstructionEcho) Execute(runtime *RuntimeInstance) {
-	color.Println(color.Green, runtime.Runtime.Variables[runtime.AddressFromSymbol(instr.A)])
+	rt, addr := runtime.AddressFromSymbol(instr.A)
+	color.Println(color.Green, rt.Variables[addr])
 }
 
 type InstrCallFunction struct {
@@ -201,6 +202,7 @@ type InstrCallFunction struct {
 	RetVal        variables.Symbol
 	SymbolicLabel variables.Symbol
 	State         *statemanager.States
+	Fork          bool
 }
 
 func (instr *InstrCallFunction) Execute(runtime *RuntimeInstance) {
@@ -212,24 +214,35 @@ func (instr *InstrCallFunction) Execute(runtime *RuntimeInstance) {
 	//Fetch func_ptr
 	func_ptr := runtime.Get(instr.SymbolicLabel).(variables.FunctionVar)
 
-	// Bind return value
-	top_ar := runtime.CallStack.PeekRef()
-	top_ar.Retval = instr.RetVal
-	//fmt.Println("Bound ret val to", top_ar.Retval)
+	if !instr.Fork {
+		// Bind return value
+		top_ar := runtime.CallStack.PeekRef()
+		top_ar.Retval = instr.RetVal
+		//fmt.Println("Bound ret val to", top_ar.Retval)
 
-	// Account for prelude length
-	runtime.PushCall(func_ptr.AddressStack, instr.State)
+		runtime.PushCall(func_ptr.AddressStack, instr.State)
 
-	// Once "inside" the function, load argument values
-	for i := range arg_values {
-		runtime.Set(variables.Symbol{Offset: i, Scope: 0, Type: instr.Arguments[i].Type}, arg_values[i])
+		// Once "inside" the function, load argument values
+		for i := range arg_values {
+			runtime.Set(variables.Symbol{Offset: i, Scope: 0, Type: instr.Arguments[i].Type}, arg_values[i])
+		}
+
+		//Then, jump to the function's label
+		jmp_instr := InstrJmpVar{
+			Label: func_ptr.Label,
+		}
+		jmp_instr.Execute(runtime)
+	} else {
+		// Create a new runtime
+		runtime = runtime.Fork(runtime.Runtime.Labels[func_ptr.Label], func_ptr.AddressStack)
+		// Set arguments in new runtime
+		for i := range arg_values {
+			runtime.Set(variables.Symbol{Offset: i, Scope: 0, Type: instr.Arguments[i].Type}, arg_values[i])
+		}
+		go runtime.Run()
+		fmt.Println("Thread forked!")
 	}
 
-	//Then, jump to the function's label
-	jmp_instr := InstrJmpVar{
-		Label: func_ptr.Label,
-	}
-	jmp_instr.Execute(runtime)
 }
 
 type InstrBeginScope struct{}
@@ -252,10 +265,16 @@ func (instr *InstrExitFunction) Execute(runtime *RuntimeInstance) {
 	ret_val := runtime.Get(instr.RetVal)
 
 	runtime.PopCall()
-	top_ar := runtime.CallStack.PeekRef()
 
-	//fmt.Println("Ret val on exit", top_ar.Retval, ret_val)
-	runtime.Set(top_ar.Retval, ret_val)
+	//If callstack is empty, this thread is done.
+	if len(runtime.CallStack) == 0 {
+		runtime.Programcounter = RT_EXIT
+	} else {
+		top_ar := runtime.CallStack.PeekRef()
+		//fmt.Println("Ret val on exit", top_ar.Retval, ret_val)
+		runtime.Set(top_ar.Retval, ret_val)
+	}
+
 }
 
 // Does nothing.
@@ -344,9 +363,9 @@ type InstrLoadArray struct {
 }
 
 func (instr *InstrLoadArray) Execute(rt *RuntimeInstance) {
-	var arr []int
+	var arr []any
 	for _, sym := range instr.SrcSymbols {
-		arr = append(arr, rt.GetInt(sym))
+		arr = append(arr, rt.Get(sym))
 	}
 	rt.Set(instr.DestSymbol, arr)
 }

@@ -71,7 +71,7 @@ func Load(test_file string, config config.Config) (bool, error) {
 	fmt.Println("Parsed in ", time.Since(start))
 
 	start = time.Now()
-	primary := runtime.NewInstance(entryPoint)
+	primary := runtime.NewInstance(entryPoint, nil, []int{})
 	val := primary.Run()
 	fmt.Println("Program finished in", time.Since(start))
 

@@ -54,8 +54,9 @@ const (
 	ItemReturn
 	ItemArrayOpen
 	ItemArrayClose
-	ItemList
 	ItemAt
+	ItemTilde
+	ItemElevStatus
 	TERMINALS_LENGTH
 )
 
@@ -94,6 +95,8 @@ const (
 	NTTypeList
 	NTImplicitFunctionDefinition
 	NTArrayDeclaration
+	NTFunctionCallHeader
+	NTBaseType
 	NONTERMINALS_LENGTH
 )
 

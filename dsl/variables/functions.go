@@ -22,11 +22,18 @@ type TypeDefinition struct {
 	//Used if type is a function pointer.
 	ArgumentList ArgumentList
 	ReturnType   *TypeDefinition
+
+	//Used if type is array
+	IsArray bool
 }
 
 func (arg TypeDefinition) String() string {
 	s := ""
 	s += arg.BaseType.String()
+
+	if arg.IsArray {
+		s += "[]"
+	}
 
 	if arg.BaseType == FUNC {
 		s += " ("
@@ -44,7 +51,14 @@ func (arg TypeDefinition) String() string {
 
 // Check for type equality
 func (a TypeDefinition) Equals(b TypeDefinition) bool {
+	if b.BaseType == ANY || a.BaseType == ANY {
+		return true
+	}
+
 	if a.BaseType != b.BaseType {
+		return false
+	}
+	if a.IsArray != b.IsArray {
 		return false
 	}
 

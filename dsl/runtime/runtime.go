@@ -2,13 +2,10 @@ package runtime
 
 import (
 	"autofat/config"
-	"autofat/dsl/color"
 	"autofat/dsl/structure"
 	"autofat/dsl/variables"
 	"autofat/statemanager"
-	"fmt"
 	"log"
-	"reflect"
 )
 
 const RT_EXIT = 1000000
@@ -16,16 +13,18 @@ const RT_EXIT = 1000000
 type Runtime struct {
 	Instructions []Instruction
 	Labels       map[string]int
-	Variables    []any
 	Config       config.Config
 }
 
 type RuntimeInstance struct {
-	Retval         bool
-	Runtime        *Runtime
-	Programcounter int
-	CallStack      structure.Stack[ActivationRegister]
-	Instances      []RuntimeInstance
+	Retval          bool
+	Runtime         *Runtime
+	Parent          *RuntimeInstance
+	ParentAddrStack structure.Stack[int]
+	Variables       []any
+	Programcounter  int
+	CallStack       structure.Stack[ActivationRegister]
+	Instances       []RuntimeInstance
 }
 
 type ActivationRegister struct {
@@ -39,24 +38,26 @@ type ActivationRegister struct {
 
 func New(config config.Config) *Runtime {
 	runTime := Runtime{
-		Variables: make([]any, 1000),
-		Labels:    map[string]int{},
-		Config:    config,
+		Labels: map[string]int{},
+		Config: config,
 	}
 
 	return &runTime
 }
 
-func (runtime *Runtime) NewInstance(entryPoint int) RuntimeInstance {
+func (runtime *Runtime) NewInstance(entryPoint int, parent *RuntimeInstance, parent_addressStack structure.Stack[int]) RuntimeInstance {
 	first_ar := ActivationRegister{
 		SavedPC:      0,
 		AddressBegin: 0,
 	}
 	first_ar.AddressStack.Push(0)
 	instance := RuntimeInstance{
-		Retval:         true,
-		Programcounter: entryPoint,
-		Runtime:        runtime,
+		Retval:          true,
+		Programcounter:  entryPoint,
+		Runtime:         runtime,
+		Parent:          parent,
+		ParentAddrStack: parent_addressStack,
+		Variables:       make([]any, 1000),
 	}
 	instance.CallStack.Push(first_ar)
 	return instance
@@ -122,13 +123,8 @@ func (runTime *Runtime) NextInstruction() int {
 }
 
 func (runtime *RuntimeInstance) Run() bool {
-	fmt.Println(runtime.Runtime.Labels)
-	for i, instr := range runtime.Runtime.Instructions {
-		fmt.Println(i, reflect.TypeOf(instr), instr)
-	}
-
-	for runtime.Programcounter < len(runtime.Runtime.Instructions) {
-		color.Println(color.Yellow, reflect.TypeOf(runtime.Runtime.Instructions[runtime.Programcounter]), "PC = ", runtime.Programcounter)
+	for runtime.Programcounter != RT_EXIT+1 {
+		//color.Println(color.Yellow, reflect.TypeOf(runtime.Runtime.Instructions[runtime.Programcounter]), "PC = ", runtime.Programcounter)
 		runtime.Runtime.Instructions[runtime.Programcounter].Execute(runtime)
 		runtime.Programcounter += 1
 	}
@@ -136,17 +132,28 @@ func (runtime *RuntimeInstance) Run() bool {
 	return runtime.Retval
 }
 
-func (r *RuntimeInstance) AddressFromSymbol(symbol variables.Symbol) int {
+func (runtime *RuntimeInstance) Fork(entryPoint int, caller_address_stack structure.Stack[int]) *RuntimeInstance {
+	new_runtime := runtime.Runtime.NewInstance(entryPoint, runtime, caller_address_stack)
+	return &new_runtime
+}
+
+func (r *RuntimeInstance) AddressFromSymbol(symbol variables.Symbol) (*RuntimeInstance, int) {
 	top_of_callstack := r.CallStack.PeekRef()
+	len_address_stack := len(top_of_callstack.AddressStack)
 
 	//fmt.Println("Resolving address symbol", symbol, top_of_callstack.AddressStack)
-	ar := top_of_callstack.AddressStack[len(top_of_callstack.AddressStack)-1-symbol.Scope]
-	return ar + symbol.Offset
+	if symbol.Scope >= len_address_stack {
+		ar := r.ParentAddrStack[len(r.ParentAddrStack)-1-(symbol.Scope-len_address_stack)]
+		return r.Parent, ar + symbol.Offset
+	} else {
+		ar := top_of_callstack.AddressStack[len(top_of_callstack.AddressStack)-1-symbol.Scope]
+		return r, ar + symbol.Offset
+	}
 }
 
 func (s *RuntimeInstance) Get(symbol variables.Symbol) any {
-	addr := s.AddressFromSymbol(symbol)
-	resolve := s.Runtime.Variables[addr]
+	rt, addr := s.AddressFromSymbol(symbol)
+	resolve := rt.Variables[addr]
 
 	//fmt.Println("Get", symbol, "val=", resolve, "addr=", addr)
 	return resolve
@@ -172,11 +179,13 @@ func (r *RuntimeInstance) GetState() *statemanager.States {
 }
 
 func (s *RuntimeInstance) Set(symbol variables.Symbol, value any) {
-	addr := s.AddressFromSymbol(symbol)
-	s.Runtime.Variables[addr] = value
-	stack_top := &s.CallStack.PeekRef().StackTop
-	if addr > *stack_top {
-		*stack_top = addr
+	rt, addr := s.AddressFromSymbol(symbol)
+	rt.Variables[addr] = value
+	if s == rt {
+		stack_top := &s.CallStack.PeekRef().StackTop
+		if addr > *stack_top {
+			*stack_top = addr
+		}
 	}
 	//fmt.Println("Set", symbol, "value=", value, "addr=", addr)
 }

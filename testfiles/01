@@ -1,22 +1,9 @@
 
-@ = [0];
+int[] arr = [0, 1, 2];
+bool[] arr2 = [];
 
-sleep(10000);
-exit(true);
-await(() bool {
-    return floor([0]) == 0;
-}, 10000);
-
-await(() bool {
-    return floor([0]) == 1;
-}, 10000);
-
-await(() bool {
-    return floor([0]) == 2;
-}, 10000);
-
-await(() bool {
-    return floor([0]) == 3;
-}, 10000);
-
-echo(2);
+func sleepy(int ms) int {
+  sleep(ms);
+  echo(ms);
+  return 0;
+}

@@ -20,6 +20,11 @@ type List[T any] struct {
 	Second *List[T]
 }
 
+type FunctionCall struct {
+	FuncSymbol variables.Symbol
+	ArgList    []variables.Symbol
+}
+
 func (list List[T]) Iterate() (ret []T) {
 	ret = append(ret, list.First)
 
@@ -86,6 +91,12 @@ func booleanArithmetic(words []any, s *storage.Compiler, op runtime.BooleanOpera
 }
 
 func doAssignment(src variables.Symbol, dest variables.Symbol, storage *storage.Compiler) variables.Symbol {
+	if dest.Type.BaseType == variables.UNDETERMINED {
+		dest.Type.BaseType = src.Type.BaseType
+	}
+	if src.Type.BaseType == variables.UNDETERMINED {
+		src.Type.BaseType = dest.Type.BaseType
+	}
 	if !src.Type.Equals(dest.Type) {
 		log.Fatalf("invalid type assignment: expected %s, got %s", src.Type.String(), dest.Type.String())
 	}
@@ -110,14 +121,7 @@ func doFunctionCall(name string, arguments []variables.Symbol, storage *storage.
 		return sym, fmt.Errorf("argument list to function %s invalid", name)
 	}
 
-	ret_val := storage.NewLiteral(*sym.Type.ReturnType)
-	storage.LoadInstruction(&runtime.InstrCallFunction{
-		RetVal:        ret_val,
-		Arguments:     arguments,
-		SymbolicLabel: sym,
-	})
-
-	return ret_val, nil
+	return sym, nil
 }
 
 func DoActions(rule_id int, words []any, storage *storage.Compiler, r *runtime.Runtime) any {
@@ -168,11 +172,14 @@ func DoActions(rule_id int, words []any, storage *storage.Compiler, r *runtime.R
 	case 19: // call function e.g. echo ( 0 )
 		arg_list := (words[2].(List[variables.Symbol])).Iterate()
 		func_name := words[0].(string)
-		sym, err := doFunctionCall(func_name, arg_list, storage)
+		func_sym, err := doFunctionCall(func_name, arg_list, storage)
 		if err != nil {
 			log.Fatal(err)
 		}
-		return sym
+		return FunctionCall{
+			ArgList:    arg_list,
+			FuncSymbol: func_sym,
+		}
 	case 20: //argument list construction, input is "symbol , List"
 		second := words[2].(List[variables.Symbol])
 		return List[variables.Symbol]{
@@ -406,7 +413,10 @@ func DoActions(rule_id int, words []any, storage *storage.Compiler, r *runtime.R
 		if err != nil {
 			log.Fatal(err)
 		}
-		return sym
+		return FunctionCall{
+			ArgList:    arg_list,
+			FuncSymbol: sym,
+		}
 	case 67: // Implicit function definition: TypeDefiniiton + FunctionBody
 		return words[0].(variables.Symbol)
 	case 68: // New implicit function header "(arg_list) ret_type"
@@ -427,32 +437,62 @@ func DoActions(rule_id int, words []any, storage *storage.Compiler, r *runtime.R
 		}
 		return storage.NewImplicitFunction(def)
 	case 70: //Array, no arguments
-		arr_sym := storage.NewLiteral(variables.TypeDefinition{BaseType: variables.ARRAY})
+		arr_sym := storage.NewLiteral(variables.TypeDefinition{BaseType: variables.UNDETERMINED, IsArray: true})
 		storage.LoadInstruction(&runtime.InstrLoadArray{
 			DestSymbol: arr_sym,
 		})
 		return arr_sym
 	case 71: //Array, with arguments.
 		list := words[1].(List[variables.Symbol]).Iterate()
-		for i := range list {
-			if list[i].Type.BaseType != variables.INT {
-				log.Fatalf("Array arguments must be integers.")
+		array_type := variables.UNDETERMINED
+		if len(list) > 0 {
+			for i := range list {
+				if !list[i].Type.Equals(list[0].Type) {
+					log.Fatalf("Elements in an array must be of the same type.")
+				}
 			}
+			array_type = list[0].Type.BaseType
 		}
-		arr_sym := storage.NewLiteral(variables.TypeDefinition{BaseType: variables.ARRAY})
+		arr_sym := storage.NewLiteral(variables.TypeDefinition{BaseType: array_type, IsArray: true})
 		storage.LoadInstruction(&runtime.InstrLoadArray{
 			SrcSymbols: list,
 			DestSymbol: arr_sym,
 		})
 		return arr_sym
 	case 72:
-		return variables.TypeDefinition{BaseType: variables.ARRAY}
+		return variables.TypeDefinition{BaseType: variables.UNDETERMINED, IsArray: true}
 	case 74:
 		array := words[2].(variables.Symbol)
 		storage.LoadInstruction(&runtime.InstrInitializeElevators{
 			ArraySymbol: array,
 		})
-
+	//Fork function call: FunctionCall -> ~ FunctionHeader
+	case 75:
+		func_call := words[1].(FunctionCall)
+		ret_val := storage.NewLiteral(*func_call.FuncSymbol.Type.ReturnType)
+		storage.LoadInstruction(&runtime.InstrCallFunction{
+			RetVal:        ret_val,
+			Arguments:     func_call.ArgList,
+			SymbolicLabel: func_call.FuncSymbol,
+			Fork:          true,
+		})
+		return ret_val
+	//Ordinary function call: FunctionCall -> FunctionCallHeader
+	case 76:
+		func_call := words[0].(FunctionCall)
+		ret_val := storage.NewLiteral(*func_call.FuncSymbol.Type.ReturnType)
+		storage.LoadInstruction(&runtime.InstrCallFunction{
+			RetVal:        ret_val,
+			Arguments:     func_call.ArgList,
+			SymbolicLabel: func_call.FuncSymbol,
+			Fork:          false,
+		})
+		return ret_val
+	//Type declaration: array VarType -> BaseType [ ]
+	case 78:
+		_type := words[0].(variables.TypeDefinition)
+		_type.IsArray = true
+		return _type
 	}
 	return words[0]
 }

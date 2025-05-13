@@ -206,6 +206,8 @@ func lexInsideExpression(l *lexer) stateFn {
 			return lexInsideExpression
 		} else if r == '@' {
 			l.emit(tokens.ItemAt)
+		} else if r == '~' {
+			l.emit(tokens.ItemTilde)
 		} else if '0' <= r && r <= '9' {
 			l.backup()
 			return lexNumber
@@ -268,8 +270,6 @@ func lexIdentifier(l *lexer) stateFn {
 		l.emit(tokens.ItemReturn)
 	} else if current == "else" {
 		l.emit(tokens.ItemElse)
-	} else if current == "list" {
-		l.emit(tokens.ItemList)
 	} else {
 		l.emit(tokens.ItemIdentifier)
 	}

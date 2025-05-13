@@ -127,7 +127,7 @@ func generateGlobalFunctions(rt *runtime.Runtime, storage *storage.Compiler) {
 		ArgumentList: []variables.Argument{
 			{
 				Definition: variables.TypeDefinition{
-					BaseType: variables.INT,
+					BaseType: variables.ANY,
 				},
 				Identifier: "i",
 			},
@@ -159,7 +159,7 @@ func generateGlobalFunctions(rt *runtime.Runtime, storage *storage.Compiler) {
 		BaseType: variables.FUNC,
 		ArgumentList: []variables.Argument{
 			{
-				Definition: variables.TypeDefinition{BaseType: variables.ARRAY},
+				Definition: variables.TypeDefinition{BaseType: variables.INT, IsArray: true},
 				Identifier: "i",
 			},
 		},
@@ -171,7 +171,7 @@ func generateGlobalFunctions(rt *runtime.Runtime, storage *storage.Compiler) {
 		BaseType: variables.FUNC,
 		ArgumentList: []variables.Argument{
 			{
-				Definition: variables.TypeDefinition{BaseType: variables.ARRAY},
+				Definition: variables.TypeDefinition{BaseType: variables.INT, IsArray: true},
 				Identifier: "i",
 			},
 			{

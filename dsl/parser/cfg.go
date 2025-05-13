@@ -124,7 +124,7 @@ func CreateCFG() CFG {
 	cfg.addRule(tokens.NTScopeClose, cfg_alternative{tokens.ItemScopeClose})
 
 	cfg.addRule(tokens.NTFactor, cfg_alternative{tokens.NTFunctionCall})
-	cfg.addRule(tokens.NTFunctionCall, cfg_alternative{tokens.ItemIdentifier, tokens.ItemParOpen, tokens.NTArgList, tokens.ItemParClosed})
+	cfg.addRule(tokens.NTFunctionCallHeader, cfg_alternative{tokens.ItemIdentifier, tokens.ItemParOpen, tokens.NTArgList, tokens.ItemParClosed})
 	cfg.addRule(tokens.NTArgList, cfg_alternative{tokens.NTArgument, tokens.ItemComma, tokens.NTArgList})
 	cfg.addRule(tokens.NTArgList, cfg_alternative{tokens.NTArgument})
 
@@ -178,7 +178,7 @@ func CreateCFG() CFG {
 		{tokens.NTVarType, tokens.ItemIdentifier}, //43
 	})
 
-	cfg.addRules(tokens.NTVarType, []cfg_alternative{
+	cfg.addRules(tokens.NTBaseType, []cfg_alternative{
 		{tokens.ItemKeyBool}, //44
 		{tokens.ItemKeyInt},  //45
 	})
@@ -212,18 +212,18 @@ func CreateCFG() CFG {
 	cfg.addRule(tokens.NTTerm, cfg_alternative{tokens.NTTerm, tokens.ItemOpMod, tokens.NTFactor})                                                      // 59
 	cfg.addRule(tokens.NTStatement, cfg_alternative{tokens.ItemReturn, tokens.NTExpr, tokens.ItemSemicolon})                                           // 60
 	//61
-	cfg.addRule(tokens.NTVarType, cfg_alternative{tokens.ItemFunction, tokens.ItemParOpen, tokens.NTTypeList, tokens.ItemParClosed, tokens.NTVarType})
+	cfg.addRule(tokens.NTBaseType, cfg_alternative{tokens.ItemFunction, tokens.ItemParOpen, tokens.NTTypeList, tokens.ItemParClosed, tokens.NTVarType})
 	//62
 	cfg.addRule(tokens.NTTypeList, cfg_alternative{tokens.NTVarType, tokens.ItemComma, tokens.NTTypeList})
 	//63
 	cfg.addRule(tokens.NTTypeList, cfg_alternative{tokens.NTVarType})
-	//64 - Declare type, empty argument list
-	cfg.addRule(tokens.NTVarType, cfg_alternative{tokens.ItemFunction, tokens.ItemParOpen, tokens.ItemParClosed, tokens.NTVarType})
+	//64 - Declare function type, empty argument list
+	cfg.addRule(tokens.NTBaseType, cfg_alternative{tokens.ItemFunction, tokens.ItemParOpen, tokens.ItemParClosed, tokens.NTVarType})
 	//65 - Function definition, no arguments
 	cfg.addRule(tokens.NTFunctionDefinition,
 		cfg_alternative{tokens.ItemIdentifier, tokens.ItemParOpen, tokens.ItemParClosed, tokens.NTVarType})
 	//66 - Function call, no arguments
-	cfg.addRule(tokens.NTFunctionCall, cfg_alternative{tokens.ItemIdentifier, tokens.ItemParOpen, tokens.ItemParClosed})
+	cfg.addRule(tokens.NTFunctionCallHeader, cfg_alternative{tokens.ItemIdentifier, tokens.ItemParOpen, tokens.ItemParClosed})
 	//67 - Implicit function definition
 	cfg.addRule(tokens.NTExpr, cfg_alternative{tokens.NTImplicitFunctionDefinition, tokens.NTFunctionBody})
 	//68 - Implicit function definition header
@@ -235,11 +235,19 @@ func CreateCFG() CFG {
 	//71 - Array - with elements
 	cfg.addRule(tokens.NTArrayDeclaration, cfg_alternative{tokens.ItemArrayOpen, tokens.NTArgList, tokens.ItemArrayClose})
 	//72 - array type declaration
-	cfg.addRule(tokens.NTVarType, cfg_alternative{tokens.ItemList})
+	cfg.addRule(tokens.NTBaseType, cfg_alternative{tokens.ItemElevStatus})
 	//73 - Expr -> Array
 	cfg.addRule(tokens.NTExpr, cfg_alternative{tokens.NTArrayDeclaration})
 	//74 - Special assignment to @ to define elevators
 	cfg.addRule(tokens.NTStatement, cfg_alternative{tokens.ItemAt, tokens.ItemEquals, tokens.NTArrayDeclaration, tokens.ItemSemicolon})
+	//75 - Fork function call
+	cfg.addRule(tokens.NTFunctionCall, cfg_alternative{tokens.ItemTilde, tokens.NTFunctionCallHeader})
+	//76 - Ordinary function call
+	cfg.addRule(tokens.NTFunctionCall, cfg_alternative{tokens.NTFunctionCallHeader})
+	//77 - Type, no array
+	cfg.addRule(tokens.NTVarType, cfg_alternative{tokens.NTBaseType})
+	//78 - Type, is array
+	cfg.addRule(tokens.NTVarType, cfg_alternative{tokens.NTBaseType, tokens.ItemArrayOpen, tokens.ItemArrayClose})
 	fmt.Println("Num rules: ", len(cfg._array))
 	cfg.compile()
 

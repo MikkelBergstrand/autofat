@@ -273,7 +273,7 @@ func CreateLRParser(grammar tokens.Grammar, cfg CFG, first FirstSet) LRParser {
 }
 
 func (parser *LRParser) Parse(words <-chan tokens.Token, cfg CFG, grammar tokens.Grammar,
-	storage *storage.Compiler, runtime *runtime.Runtime) (int, error) {
+	storage *storage.Compiler, rt *runtime.Runtime) (int, error) {
 	type stack_state struct {
 		symbol tokens.Symbol
 		state  int
@@ -303,7 +303,7 @@ func (parser *LRParser) Parse(words <-chan tokens.Token, cfg CFG, grammar tokens
 				popped[i] = pop.value
 			}
 
-			value := DoActions(action.Value, popped, storage, runtime)
+			value := DoActions(action.Value, popped, storage, rt)
 
 			state = stack.Peek()
 			_goto := gotoTable[state.state][grammar.MapToArrayindex(rule.A)]
@@ -316,8 +316,9 @@ func (parser *LRParser) Parse(words <-chan tokens.Token, cfg CFG, grammar tokens
 			word = <-words
 		case ACTION_ACCEPT:
 			if word.Symbol == tokens.ItemEOF {
-				start, _ := storage.DestroyFunctionScope(runtime) //Destroy the final (outermost) scope
-				return start, nil                                 // success
+				storage.LoadInstruction(&runtime.InstrExitFunction{})
+				start, _ := storage.DestroyFunctionScope(rt) //Destroy the final (outermost) scope
+				return start, nil
 			} else {
 				return 0, errors.New("syntax error")
 			}

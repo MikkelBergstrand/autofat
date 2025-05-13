@@ -15,9 +15,11 @@ const (
 	FUNC
 	STATE
 	CHAN
-	ARRAY
 	ORDERTYPE
 	NONE
+	ANY
+	UNDETERMINED
+	THREAD
 )
 
 func (t Type) String() string {
@@ -34,10 +36,14 @@ func (t Type) String() string {
 		return "state"
 	case CHAN:
 		return "chan"
-	case ARRAY:
-		return "array"
+	case UNDETERMINED:
+		return "undetermined"
 	case ORDERTYPE:
 		return "type"
+	case ANY:
+		return "any"
+	case THREAD:
+		return "thread"
 	case INVALID:
 		return ""
 	}
