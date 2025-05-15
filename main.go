@@ -48,7 +48,7 @@ func main() {
 
 	network.Init(cfg.StudentProgramDir, cfg)
 
-	test := tests.CreateTest("01", func() error {
+	test := tests.CreateTest(cfg.TestFile, func() error {
 		//Function that does nothing, just sleeps forever.
 		select {}
 	}, []simulator.InitializationParams{{

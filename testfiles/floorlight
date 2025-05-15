@@ -1,0 +1,9 @@
+@ = 1;
+
+~assert(() bool {
+  return floorlight(@) == floor(@);
+}, 250);
+
+await(() bool {
+  return floor(@) == 3;
+}, 20000);

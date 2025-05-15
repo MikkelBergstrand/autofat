@@ -57,6 +57,7 @@ const (
 	ItemAt
 	ItemTilde
 	ItemElevStatus
+	ItemFor
 	TERMINALS_LENGTH
 )
 
@@ -97,6 +98,8 @@ const (
 	NTArrayDeclaration
 	NTFunctionCallHeader
 	NTBaseType
+	NTForHeader
+	NTEndLoopScope
 	NONTERMINALS_LENGTH
 )
 

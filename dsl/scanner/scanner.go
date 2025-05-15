@@ -270,6 +270,8 @@ func lexIdentifier(l *lexer) stateFn {
 		l.emit(tokens.ItemReturn)
 	} else if current == "else" {
 		l.emit(tokens.ItemElse)
+	} else if current == "for" {
+		l.emit(tokens.ItemFor)
 	} else {
 		l.emit(tokens.ItemIdentifier)
 	}

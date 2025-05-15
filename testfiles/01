@@ -1,9 +1,19 @@
 
-@ = 1;
-~assert(() bool {
-  return floorlight(@) == floor(@);
-}, 250);
+func fac(int x) int {
+  if x == 1 {
+    return x;
+  }
+  return x * fac(x-1);
+}
 
-await(() bool {
-  return floor(@) == 3;
-}, 20000);
+func simple(int y) int {
+  echo(y);
+}
+
+int i = 1;
+for {
+  echo(fac(i));
+  i = i+1;
+}
+
+echo(1);

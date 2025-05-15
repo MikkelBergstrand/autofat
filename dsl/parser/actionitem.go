@@ -15,6 +15,16 @@ type condition_tree_entry struct {
 	jmp         *runtime.InstrJmpIf           // Instruction that starts the conditional block, of type InstrJmpIf. Can again be nil, for else statement.
 }
 
+type for_exit struct {
+	jmp        *runtime.InstrJmp
+	exit_label string
+}
+
+type for_entry struct {
+	start_label string
+	jmp_if      *runtime.InstrJmpIf
+}
+
 type List[T any] struct {
 	First  T
 	Second *List[T]
@@ -516,6 +526,32 @@ func DoActions(rule_id int, words []any, storage *storage.Compiler, r *runtime.R
 			log.Fatal(err)
 		}
 		return sym
+	case 80: //Statement -> ForHeader ItemScopeBegin StatementList ItemLoopClose
+		for_entry := words[0].(for_entry)
+		for_exit := words[3].(for_exit)
+
+		for_entry.jmp_if.Label = for_exit.exit_label
+		for_exit.jmp.Label = for_entry.start_label
+	case 81: //ForHeader -> for (empty for statement)
+		true_bool := storage.NewLiteral(variables.GetBaseTypeDef(variables.BOOL))
+		storage.LoadInstruction(&runtime.InstrLoadImmediate{Dest: true_bool, Value: true})
+		label := storage.NewAutoLabel()
+		instr := storage.LoadLabeledInstruction(&runtime.InstrJmpIf{Label: "", Condition: true_bool}, label)
+		storage.LoadInstruction(&runtime.InstrBeginScope{})
+		//Begin the for
+		storage.NewScope()
+		return for_entry{
+			start_label: label,
+			jmp_if:      instr.Instruction.(*runtime.InstrJmpIf),
+		}
+	case 83: //NTEndLoopScope
+		jmp := storage.LoadInstruction(&runtime.InstrJmp{})
+		nop := storage.LoadLabeledInstruction(&runtime.InstrNOP{}, storage.NewAutoLabel())
+		return for_exit{
+			jmp:        jmp.Instruction.(*runtime.InstrJmp),
+			exit_label: nop.Label,
+		}
+
 	}
 	return words[0]
 }

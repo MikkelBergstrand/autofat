@@ -250,6 +250,14 @@ func CreateCFG() CFG {
 	cfg.addRule(tokens.NTVarType, cfg_alternative{tokens.NTBaseType, tokens.ItemArrayOpen, tokens.ItemArrayClose})
 	//79 - @ used in Expr
 	cfg.addRule(tokens.NTExpr, cfg_alternative{tokens.ItemAt})
+	//80 - for loop
+	cfg.addRule(tokens.NTStatement, cfg_alternative{tokens.NTForHeader, tokens.ItemScopeOpen, tokens.NTStatementList, tokens.NTEndLoopScope})
+	//81 - for header: no statement
+	cfg.addRule(tokens.NTForHeader, cfg_alternative{tokens.ItemFor})
+	//82 - for header: boolean statement
+	cfg.addRule(tokens.NTForHeader, cfg_alternative{tokens.ItemFor, tokens.NTExpr})
+	//83 - End loop scope
+	cfg.addRule(tokens.NTEndLoopScope, cfg_alternative{tokens.NTScopeClose})
 	fmt.Println("Num rules: ", len(cfg._array))
 	cfg.compile()
 

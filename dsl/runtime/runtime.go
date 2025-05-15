@@ -2,13 +2,10 @@ package runtime
 
 import (
 	"autofat/config"
-	"autofat/dsl/color"
 	"autofat/dsl/structure"
 	"autofat/dsl/variables"
 	"autofat/statemanager"
-	"fmt"
 	"log"
-	"reflect"
 )
 
 const RT_EXIT = 1000000
@@ -20,7 +17,8 @@ type FunctionVar struct {
 }
 
 type address_stack_entry struct {
-	offset  int
+	start   int
+	end     int
 	runtime *RuntimeInstance
 }
 
@@ -44,7 +42,6 @@ type ActivationRegister struct {
 	SavedPC      int
 	Retval       variables.Symbol
 	AddressStack structure.Stack[address_stack_entry]
-	StackTop     int
 	State        *statemanager.States
 }
 
@@ -71,7 +68,8 @@ func (runtime *Runtime) NewInstance(entryPoint int, parent *RuntimeInstance) *Ru
 	}
 
 	first_ar.AddressStack.Push(address_stack_entry{
-		offset:  0,
+		start:   0,
+		end:     0,
 		runtime: &instance,
 	})
 	instance.CallStack.Push(first_ar)
@@ -86,19 +84,25 @@ func (runtime *Runtime) GetLabel(label string) int {
 	return value
 }
 
+func (ar *ActivationRegister) getStackTop() int {
+	return ar.AddressStack.PeekRef().end
+}
+
+func (ar *ActivationRegister) setStackTop(i int) {
+	ar.AddressStack.PeekRef().end = i
+}
 func (rt *RuntimeInstance) PushAddress() {
 	ar := rt.CallStack.PeekRef()
 	ar.AddressStack.Push(address_stack_entry{
 		runtime: rt,
-		offset:  ar.StackTop + 1})
+		start:   ar.getStackTop() + 1,
+		end:     ar.getStackTop() + 1})
 
 	//fmt.Println("Adress stack pushed at ", ar)
 }
 
 func (rt *RuntimeInstance) PopAddress() {
-	ar := rt.CallStack.PeekRef()
-	ar.StackTop = ar.AddressStack.Pop().offset + 1
-	//fmt.Println("Adress stack popped at ", ar)
+	rt.CallStack.PeekRef().AddressStack.Pop()
 }
 
 func (runtime *RuntimeInstance) PushCall(func_address_stack structure.Stack[address_stack_entry], state *statemanager.States) {
@@ -109,7 +113,8 @@ func (runtime *RuntimeInstance) PushCall(func_address_stack structure.Stack[addr
 
 	// The beginning of the next address stack then begins at the next avaiable address
 	addr_stack.Push(address_stack_entry{
-		offset:  top_of_callstack.StackTop + 1,
+		start:   top_of_callstack.getStackTop() + 1,
+		end:     top_of_callstack.getStackTop() + 1,
 		runtime: runtime,
 	})
 
@@ -117,17 +122,16 @@ func (runtime *RuntimeInstance) PushCall(func_address_stack structure.Stack[addr
 		SavedPC:      runtime.Programcounter + 1,
 		AddressStack: addr_stack.Copy(),
 		State:        state,
-		StackTop:     top_of_callstack.StackTop,
 	})
 
-	fmt.Println("PushCall with AR = ", runtime.CallStack.Peek().StackTop, func_address_stack)
+	//fmt.Println("PushCall with AR = ", runtime.CallStack.PeekRef().getStackTop(), func_address_stack)
 }
 
 func (runtime *RuntimeInstance) PopCall() {
 	val := runtime.CallStack.Pop()
 	runtime.Programcounter = val.SavedPC - 1
 	if len(runtime.CallStack) > 0 {
-		fmt.Println("PopCall, AR = ", runtime.CallStack.Peek().StackTop)
+		//fmt.Println("PopCall, AR = ", runtime.CallStack.PeekRef().getStackTop())
 	}
 }
 
@@ -149,7 +153,7 @@ func (runTime *Runtime) NextInstruction() int {
 
 func (runtime *RuntimeInstance) Run(done chan bool) {
 	for runtime.Programcounter != RT_EXIT+1 {
-		color.Println(color.Yellow, &runtime, reflect.TypeOf(runtime.Runtime.Instructions[runtime.Programcounter]), "PC = ", runtime.Programcounter)
+		//color.Println(color.Yellow, &runtime, reflect.TypeOf(runtime.Runtime.Instructions[runtime.Programcounter]), "PC = ", runtime.Programcounter)
 		runtime.Runtime.Instructions[runtime.Programcounter].Execute(runtime)
 		runtime.Programcounter += 1
 	}
@@ -162,25 +166,25 @@ func (runtime *RuntimeInstance) Fork(entryPoint int, addressStack structure.Stac
 	new_addr_stack := addressStack.Copy()
 	new_addr_stack.Push(address_stack_entry{
 		runtime: new_runtime,
-		offset:  0})
+		start:   0,
+		end:     0})
 	new_runtime.CallStack.PeekRef().AddressStack = new_addr_stack
-	new_runtime.CallStack.PeekRef().StackTop = 0
 	return new_runtime
 }
 
 func (r *RuntimeInstance) AddressFromSymbol(symbol variables.Symbol) (*RuntimeInstance, int) {
 	top_of_callstack := r.CallStack.PeekRef()
 
-	fmt.Println("Resolving address symbol", symbol, top_of_callstack.AddressStack)
+	//fmt.Println("Resolving address symbol", symbol, top_of_callstack.AddressStack)
 	ar := top_of_callstack.AddressStack[len(top_of_callstack.AddressStack)-1-symbol.Scope]
-	return ar.runtime, ar.offset + symbol.Offset
+	return ar.runtime, ar.start + symbol.Offset
 }
 
 func (s *RuntimeInstance) Get(symbol variables.Symbol) any {
 	rt, addr := s.AddressFromSymbol(symbol)
 	resolve := rt.Variables[addr]
 
-	fmt.Printf("Get %v addr=%d rt=%p\n", symbol, addr, rt)
+	//fmt.Printf("Get %v addr=%d rt=%p\n", symbol, addr, rt)
 	return resolve
 }
 
@@ -207,13 +211,13 @@ func (s *RuntimeInstance) Set(symbol variables.Symbol, value any) {
 	rt, addr := s.AddressFromSymbol(symbol)
 	rt.Variables[addr] = value
 	if s == rt {
-		stack_top := &s.CallStack.PeekRef().StackTop
-		if addr > *stack_top {
-			*stack_top = addr
-			fmt.Printf("Stack top incremented to %d\n", *stack_top)
+		stack_top := s.CallStack.PeekRef().getStackTop()
+		if addr > stack_top {
+			s.CallStack.PeekRef().setStackTop(addr)
+			//fmt.Printf("Stack top incremented to %d\n", addr)
 		}
 	}
-	fmt.Printf("Set %v value=%v addr=%d rt=%p\n", symbol, value, addr, rt)
+	//fmt.Printf("Set %v value=%v addr=%d rt=%p\n", symbol, value, addr, rt)
 }
 
 func (rt *RuntimeInstance) Exit(value bool) {

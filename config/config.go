@@ -14,6 +14,7 @@ type ElevatorConfig struct {
 
 type Config struct {
 	StudentProgramDir       string
+	TestFile                string
 	NoTests                 bool
 	StudentProgramWaitTime  time.Duration
 	NetworkNamespaces       [3]string
@@ -37,6 +38,7 @@ func LoadFromFlags() Config {
 		netip.MustParseAddrPort("10.0.0.3:12346"),
 	}
 
+	flag.StringVar(&config.TestFile, "test", "", "Name of test file to be run. Lies in 'testfiles/$FILENAME'")
 	flag.StringVar(&config.StudentProgramDir, "studentdir", "", "sets directory of student program (relevant to the executing directory)")
 	flag.StringVar(&config.SimElevatorServerPath, "simserverpath", "./SimElevatorServer", "path of the simulator executable.")
 	flag.BoolVar(&config.NoTests, "notests", false, "Only launches student programs / simulators. Does not run any test.")
@@ -61,6 +63,9 @@ func LoadFromFlags() Config {
 
 	if config.StudentProgramDir == "" {
 		panic("You must specify the student program directory with --studentdir!")
+	}
+	if config.TestFile == "" {
+		panic("You must specify a test to be ran!")
 	}
 	return config
 }
