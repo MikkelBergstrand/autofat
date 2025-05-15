@@ -2,12 +2,8 @@ package runtime
 
 import (
 	"autofat/dsl/color"
-	"autofat/dsl/structure"
 	"autofat/dsl/variables"
-	"autofat/elevio"
-	"autofat/simulator"
 	"autofat/statemanager"
-	"autofat/studentprogram"
 	"fmt"
 	"slices"
 	"time"
@@ -173,14 +169,9 @@ type InstrLoadFunction struct {
 
 func (instr *InstrLoadFunction) Execute(runtime *RuntimeInstance) {
 	// Copy the current address stack.
-	var address_stack structure.Stack[int]
-	src_address_stack := runtime.CallStack.Peek().AddressStack
-	for i := range src_address_stack {
-		address_stack.Push(src_address_stack[i])
-	}
-	runtime.Set(instr.Symbol, variables.FunctionVar{
+	runtime.Set(instr.Symbol, FunctionVar{
 		Label:        instr.Label,
-		AddressStack: address_stack,
+		AddressStack: runtime.CallStack.PeekRef().AddressStack.Copy(),
 	})
 }
 
@@ -212,7 +203,8 @@ func (instr *InstrCallFunction) Execute(runtime *RuntimeInstance) {
 		arg_values = append(arg_values, runtime.Get(instr.Arguments[i]))
 	}
 	//Fetch func_ptr
-	func_ptr := runtime.Get(instr.SymbolicLabel).(variables.FunctionVar)
+	func_ptr := runtime.Get(instr.SymbolicLabel).(FunctionVar)
+	conv_addr_stack := func_ptr.AddressStack.Copy()
 
 	if !instr.Fork {
 		// Bind return value
@@ -220,7 +212,7 @@ func (instr *InstrCallFunction) Execute(runtime *RuntimeInstance) {
 		top_ar.Retval = instr.RetVal
 		//fmt.Println("Bound ret val to", top_ar.Retval)
 
-		runtime.PushCall(func_ptr.AddressStack, instr.State)
+		runtime.PushCall(conv_addr_stack, instr.State)
 
 		// Once "inside" the function, load argument values
 		for i := range arg_values {
@@ -240,12 +232,15 @@ func (instr *InstrCallFunction) Execute(runtime *RuntimeInstance) {
 		})
 
 		// Create a new runtime
-		runtime = runtime.Fork(runtime.Runtime.Labels[func_ptr.Label], func_ptr.AddressStack)
+		fmt.Println(conv_addr_stack)
+		new_runtime := runtime.Fork(runtime.Runtime.Labels[func_ptr.Label], conv_addr_stack)
+
+		new_runtime.PushAddress()
 		// Set arguments in new runtime
 		for i := range arg_values {
-			runtime.Set(variables.Symbol{Offset: i, Scope: 0, Type: instr.Arguments[i].Type}, arg_values[i])
+			new_runtime.Set(variables.Symbol{Offset: i, Scope: 0, Type: instr.Arguments[i].Type}, arg_values[i])
 		}
-		go runtime.Run(done)
+		go new_runtime.Run(done)
 		fmt.Println("Thread forked!")
 	}
 
@@ -254,13 +249,13 @@ func (instr *InstrCallFunction) Execute(runtime *RuntimeInstance) {
 type InstrBeginScope struct{}
 
 func (instr *InstrBeginScope) Execute(runtime *RuntimeInstance) {
-	runtime.CallStack.PeekRef().PushAddress()
+	runtime.PushAddress()
 }
 
 type InstrEndScope struct{}
 
 func (instr *InstrEndScope) Execute(runtime *RuntimeInstance) {
-	runtime.CallStack.PeekRef().PopAddress()
+	runtime.PopAddress()
 }
 
 type InstrExitFunction struct {
@@ -289,81 +284,6 @@ type InstrNOP struct{}
 
 func (instr *InstrNOP) Execute(runtime *RuntimeInstance) {}
 
-type InstrAwait struct {
-	AwaitVal           variables.Symbol
-	StateFunction      variables.Symbol
-	ConditionFuncValue variables.Symbol
-	Timeout            variables.Symbol
-}
-
-func (instr *InstrAwait) Execute(runtime *RuntimeInstance) {
-	// Wait for new state
-	await_obj := runtime.Get(instr.AwaitVal).(variables.AwaitVal)
-	stateChan := await_obj.StateChan
-	timeout := await_obj.Timeout
-
-	var states statemanager.States = nil
-	more := true
-	select {
-	case states, more = <-stateChan:
-		if !more {
-			fmt.Println("Closing await")
-			return
-		}
-	case <-timeout.C:
-		fmt.Println("Timeout!")
-		runtime.Set(instr.Timeout, true)
-		return
-	}
-
-	call := InstrCallFunction{
-		SymbolicLabel: instr.StateFunction,
-		State:         &states,
-		RetVal:        instr.ConditionFuncValue,
-	}
-	call.Execute(runtime)
-}
-
-type InstrEndAwait struct {
-	Label              string // Label to start of await, if the await must be ran again.
-	Timeout            variables.Symbol
-	ConditionFuncValue variables.Symbol //Return value of state function.
-	AwaitVal           variables.Symbol
-}
-
-func (instr *InstrEndAwait) Execute(runtime *RuntimeInstance) {
-	await_val := runtime.GetBool(instr.ConditionFuncValue)
-
-	fmt.Println(await_val)
-	if !runtime.GetBool(instr.Timeout) && !await_val {
-		jmp := InstrJmp{
-			Label: instr.Label,
-		}
-		jmp.Execute(runtime)
-	} else {
-		await := runtime.Get(instr.AwaitVal).(variables.AwaitVal)
-		statemanager.UnregisterStateChannel(await.StateChan)
-	}
-}
-
-type InstrStateListen struct {
-	AwaitVal       variables.Symbol
-	TimeoutSeconds variables.Symbol
-}
-
-func (instr *InstrStateListen) Execute(rt *RuntimeInstance) {
-	// Initialize a new state capturing channel
-	// if none exist at the symbol location.
-	if rt.Get(instr.AwaitVal) == nil {
-		timeout := time.NewTimer(time.Duration(rt.GetInt(instr.TimeoutSeconds) * int(time.Millisecond)))
-		stateChan := statemanager.RegisterStateChannel()
-		rt.Set(instr.AwaitVal, variables.AwaitVal{
-			Timeout:   timeout,
-			StateChan: stateChan,
-		})
-	}
-}
-
 type InstrLoadArray struct {
 	SrcSymbols []variables.Symbol
 	DestSymbol variables.Symbol
@@ -375,88 +295,6 @@ func (instr *InstrLoadArray) Execute(rt *RuntimeInstance) {
 		arr = append(arr, rt.Get(sym))
 	}
 	rt.Set(instr.DestSymbol, arr)
-}
-
-type InstrInitializeElevators struct {
-	ArraySymbol variables.Symbol
-}
-
-func (instr *InstrInitializeElevators) Execute(rt *RuntimeInstance) {
-	arr := rt.Get(instr.ArraySymbol).([]int)
-	n_elevators := len(arr)
-	for i := 0; i < n_elevators; i++ {
-		simulator.Init(rt.Runtime.Config.GetElevatorConfig(i), simulator.InitializationParams{InitialFloor: 0, BetweenFloors: false})
-		simulator.Run(i)
-	}
-
-	time.Sleep(500 * time.Millisecond)
-	studentprogram.InitalizeFromConfig(
-		rt.Runtime.Config.StudentProgramWaitTime,
-		rt.Runtime.Config.StudentProgramDir,
-		rt.Runtime.Config.GetAllElevatorConfigs(),
-		n_elevators)
-	time.Sleep(1000 * time.Millisecond)
-
-	statemanager.EventListener("LOL")
-}
-
-type InstrGetFloor struct {
-	ArraySymbol variables.Symbol
-	Result      variables.Symbol
-}
-
-func (instr *InstrGetFloor) Execute(rt *RuntimeInstance) {
-	arr := rt.Get(instr.ArraySymbol).([]int)
-	state := *rt.GetState()
-
-	if len(arr) == 0 {
-		rt.Set(instr.Result, -1)
-		return
-	}
-
-	val := state[0].Floor
-	for i := 1; i < len(arr); i++ {
-		if state[i].Floor != val {
-			rt.Set(instr.Result, -1)
-			return
-		}
-	}
-
-	rt.Set(instr.Result, val)
-}
-
-type InstrGetStatusLight struct {
-	ArraySymbol variables.Symbol
-	OrderType   variables.Symbol
-	Floor       variables.Symbol
-	Result      variables.Symbol
-}
-
-func (instr *InstrGetStatusLight) Execute(rt *RuntimeInstance) {
-	arr := rt.Get(instr.ArraySymbol).([]int)
-	state := *rt.GetState()
-
-	if len(arr) == 0 {
-		rt.Set(instr.Result, -1)
-		return
-	}
-
-	floor := rt.GetInt(instr.Floor)
-	ordertype := rt.Get(instr.OrderType).(elevio.ButtonType)
-
-	val := state[0].OrderLight(ordertype, floor)
-	for i := 1; i < len(arr); i++ {
-		if state[i].OrderLight(ordertype, floor) != val {
-			rt.Set(instr.Result, -1)
-			return
-		}
-	}
-
-	if !val {
-		rt.Set(instr.Result, 0)
-	} else {
-		rt.Set(instr.Result, 1)
-	}
 }
 
 type InstrExit struct {
@@ -489,9 +327,7 @@ func (instr *InstrSync) Execute(rt *RuntimeInstance) {
 	for _, thread := range threads {
 		thread := thread.(variables.Thread)
 		go func() {
-			fmt.Println("Waiting for thread to be done.")
 			<-thread.Done
-			fmt.Println("Done!")
 			sig <- true
 		}()
 	}
@@ -499,7 +335,6 @@ func (instr *InstrSync) Execute(rt *RuntimeInstance) {
 	for {
 		<-sig
 		n_done_threads += 1
-		fmt.Println("Done threads: ", n_done_threads)
 		if n_done_threads == n_threads {
 			break
 		}

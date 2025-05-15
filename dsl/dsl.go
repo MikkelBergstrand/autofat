@@ -72,7 +72,7 @@ func Load(test_file string, config config.Config) (bool, error) {
 	fmt.Println("Parsed in ", time.Since(start))
 
 	start = time.Now()
-	primary := runtime.NewInstance(entryPoint, nil, []int{})
+	primary := runtime.NewInstance(entryPoint, nil)
 	done := make(chan bool)
 	go primary.Run(done)
 	output := <-done

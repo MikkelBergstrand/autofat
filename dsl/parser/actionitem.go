@@ -461,10 +461,23 @@ func DoActions(rule_id int, words []any, storage *storage.Compiler, r *runtime.R
 		return arr_sym
 	case 72:
 		return variables.TypeDefinition{BaseType: variables.UNDETERMINED, IsArray: true}
-	case 74:
-		array := words[2].(variables.Symbol)
+	case 74: //Statement @ = NExpr;, initializes elevators
+		elev_array_sym, err := storage.NewVariable(variables.TypeDefinition{
+			BaseType: variables.INT,
+			IsArray:  true,
+		}, "@")
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		count := words[2].(variables.Symbol)
+		storage.LoadInstruction(&runtime.InstrLoadImmediate{
+			Dest:  *elev_array_sym,
+			Value: []any{},
+		})
 		storage.LoadInstruction(&runtime.InstrInitializeElevators{
-			ArraySymbol: array,
+			Count:        count,
+			ElevArraySym: *elev_array_sym,
 		})
 	//Fork function call: FunctionCall -> ~ FunctionHeader
 	case 75:
@@ -497,6 +510,12 @@ func DoActions(rule_id int, words []any, storage *storage.Compiler, r *runtime.R
 		_type := words[0].(variables.TypeDefinition)
 		_type.IsArray = true
 		return _type
+	case 79:
+		sym, err := storage.GetNamedSymbol("@")
+		if err != nil {
+			log.Fatal(err)
+		}
+		return sym
 	}
 	return words[0]
 }

@@ -1,12 +1,9 @@
-func sleepy(int ms) int {
-  sleep(ms);
-  echo(ms);
-  return 0;
-}
 
-echo(1);
-sync([
-  ~sleepy(0),
-  ~sleepy(2000),
-  ~sleepy(3000)
-]);
+@ = 1;
+~assert(() bool {
+  return floorlight(@) == floor(@);
+}, 250);
+
+await(() bool {
+  return floor(@) == 3;
+}, 20000);

@@ -1,7 +1,6 @@
 package variables
 
 import (
-	"autofat/dsl/structure"
 	"fmt"
 	"strings"
 )
@@ -84,11 +83,6 @@ func GetBaseTypeDef(t Type) TypeDefinition {
 	return TypeDefinition{BaseType: t}
 }
 
-// Holds the label of the function it is referring to.
-type FunctionVar struct {
-	Label        string
-	AddressStack structure.Stack[int]
-}
 
 // Verify an argument list of symbols.
 // If the argument list length and type of each argument does not match, return false.

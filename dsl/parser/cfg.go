@@ -239,7 +239,7 @@ func CreateCFG() CFG {
 	//73 - Expr -> Array
 	cfg.addRule(tokens.NTExpr, cfg_alternative{tokens.NTArrayDeclaration})
 	//74 - Special assignment to @ to define elevators
-	cfg.addRule(tokens.NTStatement, cfg_alternative{tokens.ItemAt, tokens.ItemEquals, tokens.NTArrayDeclaration, tokens.ItemSemicolon})
+	cfg.addRule(tokens.NTStatement, cfg_alternative{tokens.ItemAt, tokens.ItemEquals, tokens.NTNExpr, tokens.ItemSemicolon})
 	//75 - Fork function call
 	cfg.addRule(tokens.NTFunctionCall, cfg_alternative{tokens.ItemTilde, tokens.NTFunctionCallHeader})
 	//76 - Ordinary function call
@@ -248,6 +248,8 @@ func CreateCFG() CFG {
 	cfg.addRule(tokens.NTVarType, cfg_alternative{tokens.NTBaseType})
 	//78 - Type, is array
 	cfg.addRule(tokens.NTVarType, cfg_alternative{tokens.NTBaseType, tokens.ItemArrayOpen, tokens.ItemArrayClose})
+	//79 - @ used in Expr
+	cfg.addRule(tokens.NTExpr, cfg_alternative{tokens.ItemAt})
 	fmt.Println("Num rules: ", len(cfg._array))
 	cfg.compile()
 

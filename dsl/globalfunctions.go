@@ -58,7 +58,7 @@ func await(storage *storage.Compiler, params params) {
 	storage.LoadInstruction(&runtime.InstrLoadImmediate{Dest: timeout_sym, Value: false})
 	storage.LoadInstruction(&runtime.InstrLoadImmediate{Dest: chan_sym, Value: nil})
 	label := storage.NewAutoLabel()
-	storage.LoadLabeledInstruction(&runtime.InstrStateListen{
+	storage.LoadLabeledInstruction(&runtime.InstrAwaitStateListen{
 		AwaitVal:       chan_sym,
 		TimeoutSeconds: timeout,
 	}, label)
@@ -82,6 +82,17 @@ func floor(compiler *storage.Compiler, params params) {
 	result := compiler.NewLiteral(variables.GetBaseTypeDef(variables.INT))
 
 	compiler.LoadInstruction(&runtime.InstrGetFloor{
+		ArraySymbol: elevs,
+		Result:      result,
+	})
+	compiler.LoadInstruction(&runtime.InstrExitFunction{RetVal: result})
+}
+
+func floorlight(compiler *storage.Compiler, params params) {
+	elevs := params["i"]
+	result := compiler.NewLiteral(variables.GetBaseTypeDef(variables.INT))
+
+	compiler.LoadInstruction(&runtime.InstrGetFloorLight{
 		ArraySymbol: elevs,
 		Result:      result,
 	})
@@ -120,6 +131,38 @@ func sync(compiler *storage.Compiler, params params) {
 	threads := params["threads"]
 	compiler.LoadInstruction(&runtime.InstrSync{Threads: threads})
 	compiler.LoadInstruction(&runtime.InstrExitFunction{})
+}
+
+func assert(compiler *storage.Compiler, params params) {
+	state_func := params["state_func"]
+	deadzone_milliseconds := params["deadzone_milliseconds"]
+
+	assert_data := compiler.NewLiteral(variables.TypeDefinition{BaseType: variables.CHAN})
+	compiler.LoadInstruction(&runtime.InstrLoadImmediate{Dest: assert_data, Value: nil})
+
+	deadzone_violated := compiler.NewLiteral(variables.GetBaseTypeDef(variables.BOOL))
+	compiler.LoadInstruction(&runtime.InstrLoadImmediate{Dest: deadzone_violated, Value: false})
+
+	cond_func_ret_val := compiler.NewLiteral(variables.TypeDefinition{BaseType: variables.BOOL})
+	compiler.LoadInstruction(&runtime.InstrLoadImmediate{Dest: cond_func_ret_val, Value: false})
+
+	label := compiler.NewAutoLabel()
+	compiler.LoadLabeledInstruction(&runtime.InstrAssertStateListen{
+		AssertVal: assert_data,
+	}, label)
+	compiler.LoadInstruction(&runtime.InstrAssert{
+		AssertVal:          assert_data,
+		StateFunction:      state_func,
+		ConditionFuncValue: cond_func_ret_val,
+		DeadzoneViolated:   deadzone_violated,
+	})
+	compiler.LoadInstruction(&runtime.InstrEndAssert{
+		Label:                label,
+		ConditionFuncValue:   cond_func_ret_val,
+		AssertVal:            assert_data,
+		DeadzoneMilliseconds: deadzone_milliseconds,
+		Deadzoneviolated:     deadzone_violated,
+	})
 }
 
 func generateGlobalVariables(compiler *storage.Compiler) {
@@ -172,6 +215,18 @@ func generateGlobalFunctions(rt *runtime.Runtime, storage *storage.Compiler) {
 		},
 		ReturnType: &variables.TypeDefinition{BaseType: variables.INT},
 	}, floor)
+
+	//Create function to check floor light
+	defineFunction(rt, storage, "floorlight", variables.TypeDefinition{
+		BaseType: variables.FUNC,
+		ArgumentList: []variables.Argument{
+			{
+				Definition: variables.TypeDefinition{BaseType: variables.INT, IsArray: true},
+				Identifier: "i",
+			},
+		},
+		ReturnType: &variables.TypeDefinition{BaseType: variables.INT},
+	}, floorlight)
 
 	// Create function to check status light
 	defineFunction(rt, storage, "statuslight", variables.TypeDefinition{
@@ -232,4 +287,24 @@ func generateGlobalFunctions(rt *runtime.Runtime, storage *storage.Compiler) {
 		},
 		ReturnType: &variables.TypeDefinition{BaseType: variables.NONE},
 	}, sync)
+
+	defineFunction(rt, storage, "assert", variables.TypeDefinition{
+		BaseType: variables.FUNC,
+		ArgumentList: []variables.Argument{
+			{
+				Definition: variables.TypeDefinition{
+					BaseType:   variables.FUNC,
+					ReturnType: &variables.TypeDefinition{BaseType: variables.BOOL},
+				},
+				Identifier: "state_func",
+			},
+			{
+				Definition: variables.TypeDefinition{
+					BaseType: variables.INT,
+				},
+				Identifier: "deadzone_milliseconds",
+			},
+		},
+		ReturnType: &variables.TypeDefinition{BaseType: variables.NONE},
+	}, assert)
 }

@@ -6,6 +6,14 @@ func NewStack[K any]() Stack[K] {
 	return make(Stack[K], 0)
 }
 
+func (stack *Stack[K]) Copy() Stack[K] {
+	newStack := NewStack[K]()
+	for i := range *stack {
+		newStack.Push((*stack)[i])
+	}
+	return *stack
+}
+
 func (stack *Stack[K]) Push(val K) {
 	*stack = append(*stack, val)
 }

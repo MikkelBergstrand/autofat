@@ -57,6 +57,10 @@ func Init() {
 			select {
 			case trigger, more := <-_pollAgain:
 				if !more {
+					for i := range _stateChannels {
+						fmt.Println("Closing state channel", i, "of", len(_stateChannels))
+						close(_stateChannels[i])
+					}
 					return
 				}
 				pollEvents(trigger.Type, trigger.Params)
@@ -167,11 +171,6 @@ func listenToElevators(elevatorId int, simulatedElevator *simulator.Simulator, s
 
 func Kill() {
 	close(_pollAgain)
-
-	for i := range _stateChannels {
-		fmt.Println("Closing state channel", i, "of", len(_stateChannels))
-		close(_stateChannels[i])
-	}
 
 	for i := range _elevatorStates {
 		fmt.Println("Closing elev poll channel", i)
