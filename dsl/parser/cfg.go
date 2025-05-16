@@ -260,6 +260,10 @@ func CreateCFG() CFG {
 	cfg.addRule(tokens.NTEndLoopScope, cfg_alternative{tokens.NTScopeClose})
 	//84 - For prelude
 	cfg.addRule(tokens.NTForPrelude, cfg_alternative{tokens.ItemFor})
+	//85 - String type
+	cfg.addRule(tokens.NTBaseType, cfg_alternative{tokens.ItemKeyString})
+	//86 - String literal
+	cfg.addRule(tokens.NTExpr, cfg_alternative{tokens.ItemText})
 	fmt.Println("Num rules: ", len(cfg._array))
 	cfg.compile()
 

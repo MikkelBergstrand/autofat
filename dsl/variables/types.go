@@ -20,6 +20,7 @@ const (
 	ANY
 	UNDETERMINED
 	THREAD
+	STRING
 )
 
 func (t Type) String() string {
@@ -67,25 +68,11 @@ type AwaitVal struct {
 	Timeout   *time.Timer
 }
 
-// Potential result of an await evaluation
-const (
-	AWAIT_STATE_OK    = 0
-	AWAIT_STATE_NOTOK = 1
-	AWAIT_TIMEOUT     = 2
-)
-
 type AssertVal struct {
 	StateChan     statemanager.StateChannel
 	DeadzoneTimer *time.Timer
 	TimerActive   bool
 }
-
-// Potential result of an assert evaluation
-const (
-	ASSERT_STATE_OK    = 0
-	ASSERT_STATE_NOTOK = 1
-	ASSERT_STATE_EXIT  = 2
-)
 
 type Thread struct {
 	Done chan bool

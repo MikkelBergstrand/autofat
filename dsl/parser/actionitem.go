@@ -570,6 +570,16 @@ func DoActions(rule_id int, words []any, storage *storage.Compiler, r *runtime.R
 		label := storage.NewAutoLabel()
 		storage.NewLabel(label)
 		return label
+	case 85:
+		return variables.TypeDefinition{BaseType: variables.STRING}
+	case 86: //Expr -> ItemText (string literal)
+		value := words[0].(string)
+		sym := storage.NewLiteral(variables.GetBaseTypeDef(variables.STRING))
+		storage.LoadInstruction(&runtime.InstrLoadImmediate{
+			Dest:  sym,
+			Value: value,
+		})
+		return sym
 	}
 	return words[0]
 }

@@ -1,10 +1,13 @@
 
 int a = 0;
+string s = "Hei";
 // Comment test
 func test() bool {
 	a = a +1;
 	return a > 1;
 }
+
+echo(s);
 
 if test() {
 	echo(a);

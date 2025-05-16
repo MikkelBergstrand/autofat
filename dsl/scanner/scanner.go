@@ -43,6 +43,7 @@ func lexInsideExpression(l *lexer) stateFn {
 			}
 			return lexInsideExpression
 		} else if r == '"' {
+			l.ignore() //Ignore the initial quote
 			return lexQuote
 		} else if r == '+' {
 			l.emit(tokens.ItemOpPlus)
@@ -170,6 +171,8 @@ func lexIdentifier(l *lexer) stateFn {
 		l.emit(tokens.ItemKeyInt)
 	} else if current == "bool" {
 		l.emit(tokens.ItemKeyBool)
+	} else if current == "string" {
+		l.emit(tokens.ItemKeyString)
 	} else if current == "false" {
 		l.emit(tokens.ItemFalse)
 	} else if current == "true" {
@@ -197,7 +200,11 @@ func lexQuote(l *lexer) stateFn {
 		if r == eof || r == '\n' {
 			return l.errorf("Unterminated string literal")
 		} else if r == '"' {
+			l.backup() // Remove the trailing quote
 			l.emit(tokens.ItemText)
+			//Then skip over the trailing quote again.
+			l.next()
+			l.ignore()
 			return lexInsideExpression
 		}
 	}

@@ -58,6 +58,7 @@ const (
 	ItemTilde
 	ItemElevStatus
 	ItemFor
+	ItemKeyString
 	TERMINALS_LENGTH
 )
 
