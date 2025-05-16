@@ -5,8 +5,10 @@ import (
 	"autofat/dsl/storage"
 	"autofat/dsl/structure"
 	"autofat/dsl/tokens"
+	"encoding/gob"
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"strconv"
 )
@@ -181,7 +183,19 @@ type LRParser struct {
 	GotoTable   GotoTable
 }
 
-func CreateLRParser(grammar tokens.Grammar, cfg CFG, first FirstSet) LRParser {
+func CreateLRParser(grammar tokens.Grammar, cfg CFG, first FirstSet, forceRecreate bool) LRParser {
+
+	cached_file, err := os.Open(".cache/lr_cache")
+	if !forceRecreate && err == nil {
+		decoder := gob.NewDecoder(cached_file)
+		var lr_parser *LRParser
+		err = decoder.Decode(&lr_parser)
+		if err != nil {
+			fmt.Println("WARNING: could not decode cached LR-parser tables. Recreating them...\nError: ", err)
+		} else {
+			return *lr_parser
+		}
+	}
 	closures := computeCanonicalCollections(grammar, cfg, first)
 
 	type goto_key struct {
@@ -266,10 +280,21 @@ func CreateLRParser(grammar tokens.Grammar, cfg CFG, first FirstSet) LRParser {
 			}
 		}
 	}
-	return LRParser{
+	lr_parser := LRParser{
 		ActionTable: actionTable,
 		GotoTable:   gotoTable,
 	}
+
+	file, err := os.Create(".cache/lr_cache")
+	if err == nil {
+		encoder := gob.NewEncoder(file)
+		encoder.Encode(lr_parser)
+		file.Close()
+	} else {
+		fmt.Println("WARNING: could not save LR-table cache.", err)
+	}
+
+	return lr_parser
 }
 
 func (parser *LRParser) Parse(words <-chan tokens.Token, cfg CFG, grammar tokens.Grammar,

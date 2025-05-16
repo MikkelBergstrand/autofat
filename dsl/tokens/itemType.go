@@ -100,6 +100,7 @@ const (
 	NTBaseType
 	NTForHeader
 	NTEndLoopScope
+	NTForPrelude
 	NONTERMINALS_LENGTH
 )
 

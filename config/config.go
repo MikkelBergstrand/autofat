@@ -16,6 +16,7 @@ type Config struct {
 	StudentProgramDir       string
 	TestFile                string
 	NoTests                 bool
+	CompileParser           bool
 	StudentProgramWaitTime  time.Duration
 	NetworkNamespaces       [3]string
 	SimulatorAddresses      [3]netip.AddrPort
@@ -42,6 +43,7 @@ func LoadFromFlags() Config {
 	flag.StringVar(&config.StudentProgramDir, "studentdir", "", "sets directory of student program (relevant to the executing directory)")
 	flag.StringVar(&config.SimElevatorServerPath, "simserverpath", "./SimElevatorServer", "path of the simulator executable.")
 	flag.BoolVar(&config.NoTests, "notests", false, "Only launches student programs / simulators. Does not run any test.")
+	flag.BoolVar(&config.CompileParser, "compile-parser", false, "Recreates the LR(1)-parser tables regardless of cache status.")
 
 	var wait_time_seconds int
 	flag.IntVar(&wait_time_seconds, "studwaittime", 1, "How many seconds to wait between launching student programs.")

@@ -45,7 +45,7 @@ func Load(test_file string, config config.Config) (bool, error) {
 	cfg := parser.CreateCFG()
 
 	start = time.Now()
-	parser := parser.CreateLRParser(grammar, cfg, parser.First(cfg, grammar))
+	parser := parser.CreateLRParser(grammar, cfg, parser.First(cfg, grammar), config.CompileParser)
 	fmt.Println("Created parse tables in ", time.Since(start))
 
 	words := make(chan tokens.Token)
@@ -54,8 +54,6 @@ func Load(test_file string, config config.Config) (bool, error) {
 			words <- word_stream[i]
 		}
 	}()
-
-	fmt.Println(word_stream)
 
 	storage := storage.NewStorage()
 	runtime := runtime.New(config)

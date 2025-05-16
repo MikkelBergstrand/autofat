@@ -533,15 +533,29 @@ func DoActions(rule_id int, words []any, storage *storage.Compiler, r *runtime.R
 		for_entry.jmp_if.Label = for_exit.exit_label
 		for_exit.jmp.Label = for_entry.start_label
 	case 81: //ForHeader -> for (empty for statement)
+		start_label := words[0].(string)
 		true_bool := storage.NewLiteral(variables.GetBaseTypeDef(variables.BOOL))
 		storage.LoadInstruction(&runtime.InstrLoadImmediate{Dest: true_bool, Value: true})
-		label := storage.NewAutoLabel()
-		instr := storage.LoadLabeledInstruction(&runtime.InstrJmpIf{Label: "", Condition: true_bool}, label)
-		storage.LoadInstruction(&runtime.InstrBeginScope{})
+		instr := storage.LoadInstruction(&runtime.InstrJmpIf{Label: "", Condition: true_bool})
+
 		//Begin the for
+		storage.LoadInstruction(&runtime.InstrBeginScope{})
 		storage.NewScope()
 		return for_entry{
-			start_label: label,
+			start_label: start_label,
+			jmp_if:      instr.Instruction.(*runtime.InstrJmpIf),
+		}
+	case 82: //ForHeader -> for Expr (conditioned for)
+		start_label := words[0].(string)
+		cond := words[1].(variables.Symbol)
+		instr := storage.LoadInstruction(&runtime.InstrJmpIf{Label: "", Condition: cond})
+
+		//Begin the for
+		storage.LoadInstruction(&runtime.InstrBeginScope{})
+		storage.NewScope()
+
+		return for_entry{
+			start_label: start_label,
 			jmp_if:      instr.Instruction.(*runtime.InstrJmpIf),
 		}
 	case 83: //NTEndLoopScope
@@ -551,7 +565,11 @@ func DoActions(rule_id int, words []any, storage *storage.Compiler, r *runtime.R
 			jmp:        jmp.Instruction.(*runtime.InstrJmp),
 			exit_label: nop.Label,
 		}
-
+	case 84:
+		//Generate a label for the first instruction in the ForHeader
+		label := storage.NewAutoLabel()
+		storage.NewLabel(label)
+		return label
 	}
 	return words[0]
 }

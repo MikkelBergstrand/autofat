@@ -217,6 +217,8 @@ func lexInsideExpression(l *lexer) stateFn {
 		} else if r == ';' {
 			l.emit(tokens.ItemSemicolon)
 			return lexInsideScope
+		} else {
+			return lexInsideScope
 		}
 	}
 }

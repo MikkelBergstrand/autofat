@@ -255,9 +255,11 @@ func CreateCFG() CFG {
 	//81 - for header: no statement
 	cfg.addRule(tokens.NTForHeader, cfg_alternative{tokens.ItemFor})
 	//82 - for header: boolean statement
-	cfg.addRule(tokens.NTForHeader, cfg_alternative{tokens.ItemFor, tokens.NTExpr})
+	cfg.addRule(tokens.NTForHeader, cfg_alternative{tokens.NTForPrelude, tokens.NTExpr})
 	//83 - End loop scope
 	cfg.addRule(tokens.NTEndLoopScope, cfg_alternative{tokens.NTScopeClose})
+	//84 - For prelude
+	cfg.addRule(tokens.NTForPrelude, cfg_alternative{tokens.ItemFor})
 	fmt.Println("Num rules: ", len(cfg._array))
 	cfg.compile()
 
