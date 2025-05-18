@@ -303,11 +303,13 @@ func (parser *LRParser) Parse(words <-chan tokens.Token, cfg CFG, grammar tokens
 		symbol tokens.Symbol
 		state  int
 		value  any
+		line   int
+		col    int
 	}
 
 	stack := structure.NewStack[stack_state]()
-	stack.Push(stack_state{tokens.ItemError, -1, nil})
-	stack.Push(stack_state{grammar.StartSymbol, 0, nil})
+	stack.Push(stack_state{tokens.ItemError, -1, nil, 0, 0})
+	stack.Push(stack_state{grammar.StartSymbol, 0, nil, 0, 0})
 
 	actionTable := parser.ActionTable
 	gotoTable := parser.GotoTable
@@ -322,22 +324,29 @@ func (parser *LRParser) Parse(words <-chan tokens.Token, cfg CFG, grammar tokens
 		case ACTION_REDUCE:
 			rule := cfg.RuleByIndex(action.Value)
 
-			popped := make([]any, len(rule.B))
-			for i := len(rule.B) - 1; i >= 0; i-- {
+			actionitems := make([]any, len(rule.B))
+
+			lastitem := stack.Pop()
+			actionitems[len(rule.B)-1] = lastitem.value
+
+			for i := len(rule.B) - 2; i >= 0; i-- {
 				pop := stack.Pop()
-				popped[i] = pop.value
+				actionitems[i] = pop.value
 			}
 
-			value := DoActions(action.Value, popped, storage, rt)
+			value, err := DoActions(action.Value, actionitems, storage, rt)
+			if err != nil {
+				return 0, fmt.Errorf("parser error on line %d, col %d:\n%s", lastitem.line, lastitem.col, err.Error())
+			}
 
 			state = stack.Peek()
 			_goto := gotoTable[state.state][grammar.MapToArrayindex(rule.A)]
 			if _goto < 0 {
 				return 0, errors.New("bad goto")
 			}
-			stack.Push(stack_state{rule.A, _goto, value})
+			stack.Push(stack_state{rule.A, _goto, value, lastitem.line, lastitem.col})
 		case ACTION_SHIFT:
-			stack.Push(stack_state{word.Symbol, action.Value, word.Lexeme})
+			stack.Push(stack_state{word.Symbol, action.Value, word.Lexeme, word.Line, word.Col})
 			word = <-words
 		case ACTION_ACCEPT:
 			if word.Symbol == tokens.ItemEOF {
@@ -345,10 +354,11 @@ func (parser *LRParser) Parse(words <-chan tokens.Token, cfg CFG, grammar tokens
 				start, _ := storage.DestroyFunctionScope(rt) //Destroy the final (outermost) scope
 				return start, nil
 			} else {
-				return 0, errors.New("syntax error")
+
+				return 0, fmt.Errorf("parser error on line %d, col %d:\nunexpected %s", word.Line, word.Col, word.Lexeme)
 			}
 		default:
-			return 0, errors.New(fmt.Sprintln("invalid action state on", word))
+			return 0, fmt.Errorf("parser error on line %d, col %d:\n unexpected %s", word.Line, word.Col, word.Lexeme)
 		}
 	}
 }

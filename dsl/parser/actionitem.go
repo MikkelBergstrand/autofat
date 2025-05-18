@@ -72,13 +72,13 @@ func validateBooleanArithmetic(a variables.Symbol, b variables.Symbol, op runtim
 	return nil
 }
 
-func booleanArithmetic(words []any, s *storage.Compiler, op runtime.BooleanOperator) variables.Symbol {
+func booleanArithmetic(words []any, s *storage.Compiler, op runtime.BooleanOperator) (variables.Symbol, error) {
 	a := words[0].(variables.Symbol)
 	b := words[2].(variables.Symbol)
 
 	err := validateBooleanArithmetic(a, b, op)
 	if err != nil {
-		log.Fatalln(err.Error())
+		return variables.Symbol{}, err
 	}
 
 	newaddr := s.NewLiteral(variables.TypeDefinition{BaseType: variables.BOOL})
@@ -97,10 +97,10 @@ func booleanArithmetic(words []any, s *storage.Compiler, op runtime.BooleanOpera
 			Operator: op,
 		})
 	}
-	return newaddr
+	return newaddr, nil
 }
 
-func doAssignment(src variables.Symbol, dest variables.Symbol, storage *storage.Compiler) variables.Symbol {
+func doAssignment(src variables.Symbol, dest variables.Symbol, storage *storage.Compiler) (variables.Symbol, error) {
 	if dest.Type.BaseType == variables.UNDETERMINED {
 		dest.Type.BaseType = src.Type.BaseType
 	}
@@ -108,14 +108,14 @@ func doAssignment(src variables.Symbol, dest variables.Symbol, storage *storage.
 		src.Type.BaseType = dest.Type.BaseType
 	}
 	if !src.Type.Equals(dest.Type) {
-		log.Fatalf("invalid type assignment: expected %s, got %s", src.Type.String(), dest.Type.String())
+		return variables.Symbol{}, fmt.Errorf("invalid type assignment: expected %s, got %s", src.Type.String(), dest.Type.String())
 	}
 
 	storage.LoadInstruction(&runtime.InstrAssign{
 		Source: src,
 		Dest:   dest,
 	})
-	return dest
+	return dest, nil
 }
 
 func doFunctionCall(name string, arguments []variables.Symbol, storage *storage.Compiler) (variables.Symbol, error) {
@@ -134,42 +134,38 @@ func doFunctionCall(name string, arguments []variables.Symbol, storage *storage.
 	return sym, nil
 }
 
-func DoActions(rule_id int, words []any, storage *storage.Compiler, r *runtime.Runtime) any {
+func DoActions(rule_id int, words []any, storage *storage.Compiler, r *runtime.Runtime) (any, error) {
 	switch rule_id {
 	case 3:
-		return integerArithmetic(words, storage, runtime.ADD)
+		return integerArithmetic(words, storage, runtime.ADD), nil
 	case 4:
-		return integerArithmetic(words, storage, runtime.SUB)
+		return integerArithmetic(words, storage, runtime.SUB), nil
 	case 6:
-		return integerArithmetic(words, storage, runtime.MULT)
+		return integerArithmetic(words, storage, runtime.MULT), nil
 	case 7:
-		return integerArithmetic(words, storage, runtime.DIV)
+		return integerArithmetic(words, storage, runtime.DIV), nil
 	case 10: //New integer literal
 		addr := storage.NewLiteral(variables.TypeDefinition{BaseType: variables.INT})
 		storage.LoadInstruction(&runtime.InstrLoadImmediate{
 			Dest:  addr,
 			Value: intval(words[0].(string)),
 		})
-		return addr
+		return addr, nil
 	case 11:
-		sym, err := storage.GetNamedSymbol(words[0].(string))
-		if err != nil {
-			log.Fatal(err)
-		}
-		return sym
+		return storage.GetNamedSymbol(words[0].(string))
 	case 12: // New variable, eg. int a = 3
 		_type := words[0].(variables.TypeDefinition)
 		src := words[3].(variables.Symbol)
 		addr, err := storage.NewVariable(_type, words[1].(string))
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 
 		return doAssignment(src, *addr, storage)
 	case 13: // Reassignment of integer, e.g. a = 3
 		addr, err := storage.GetNamedSymbol(words[0].(string))
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 
 		return doAssignment(words[2].(variables.Symbol), addr, storage)
@@ -184,22 +180,22 @@ func DoActions(rule_id int, words []any, storage *storage.Compiler, r *runtime.R
 		func_name := words[0].(string)
 		func_sym, err := doFunctionCall(func_name, arg_list, storage)
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 		return FunctionCall{
 			ArgList:    arg_list,
 			FuncSymbol: func_sym,
-		}
+		}, nil
 	case 20: //argument list construction, input is "symbol , List"
 		second := words[2].(List[variables.Symbol])
 		return List[variables.Symbol]{
 			First:  words[0].(variables.Symbol),
 			Second: &second,
-		}
+		}, nil
 	case 21: //Initial list item in an argument list
 		return List[variables.Symbol]{
 			First:  words[0].(variables.Symbol),
-			Second: nil}
+			Second: nil}, nil
 	case 23: // a | b
 		return booleanArithmetic(words, storage, runtime.OR)
 	case 25: // a & b
@@ -227,14 +223,14 @@ func DoActions(rule_id int, words []any, storage *storage.Compiler, r *runtime.R
 			Dest:  addr,
 			Value: false,
 		})
-		return addr
+		return addr, nil
 	case 38: // true
 		addr := storage.NewLiteral(variables.TypeDefinition{BaseType: variables.BOOL})
 		storage.LoadInstruction(&runtime.InstrLoadImmediate{
 			Dest:  addr,
 			Value: true,
 		})
-		return addr
+		return addr, nil
 	case 39: // declare function. func FunctionHeader FunctionBody
 	case 40: // Declare new function, format "name ( arglist ) returntype"
 		arg_list := words[2].(List[variables.Argument]).Iterate()
@@ -248,27 +244,27 @@ func DoActions(rule_id int, words []any, storage *storage.Compiler, r *runtime.R
 
 		storage.NewFunction(words[0].(string), def)
 
-		return def
+		return def, nil
 	case 41: //Function argument declaration list, second+ element
 		second := words[2].(List[variables.Argument])
 		return List[variables.Argument]{
 			First:  words[0].(variables.Argument),
 			Second: &second,
-		}
+		}, nil
 	case 42: //Function argument declaration list, first element
 		return List[variables.Argument]{
 			First:  words[0].(variables.Argument),
 			Second: nil,
-		}
+		}, nil
 	case 43: //Function argument declaration
 		return variables.Argument{
 			Definition: words[0].(variables.TypeDefinition),
 			Identifier: words[1].(string),
-		}
+		}, nil
 	case 44: //boolean type
-		return variables.TypeDefinition{BaseType: variables.BOOL}
+		return variables.TypeDefinition{BaseType: variables.BOOL}, nil
 	case 45: //int type
-		return variables.TypeDefinition{BaseType: variables.INT}
+		return variables.TypeDefinition{BaseType: variables.INT}, nil
 	case 46: // Function scope close
 		storage.LoadInstruction(&runtime.InstrExitFunction{})
 		storage.DestroyFunctionScope(r)
@@ -279,19 +275,19 @@ func DoActions(rule_id int, words []any, storage *storage.Compiler, r *runtime.R
 	case 49: //NTLabelledScopeBegin
 		instr := storage.LoadLabeledInstruction(&runtime.InstrBeginScope{}, storage.NewAutoLabel())
 		storage.NewScope()
-		return instr
+		return instr, nil
 	case 50: //NTLabelledScopeClose
 		storage.LoadInstruction(&runtime.InstrEndScope{})
 		storage.DestroyScope()
 
-		return storage.LoadLabeledInstruction(&runtime.InstrNOP{}, storage.NewAutoLabel())
+		return storage.LoadLabeledInstruction(&runtime.InstrNOP{}, storage.NewAutoLabel()), nil
 
 	case 51: //Open Function
 		storage.LoadInstruction(&runtime.InstrNOP{})
 	case 52: //NTIfHeader (if Expr)
 		condition := words[1].(variables.Symbol)
 		if condition.Type.BaseType != variables.BOOL {
-			log.Fatalln("Expected boolean statement in if clause, got", condition.Type)
+			return nil, fmt.Errorf("expected boolean statement in if clause, got %s", condition.Type.String())
 		}
 
 		instr := storage.LoadInstruction(&runtime.InstrJmpIf{
@@ -299,7 +295,7 @@ func DoActions(rule_id int, words []any, storage *storage.Compiler, r *runtime.R
 			Label:     "", // will be set later.
 		})
 		jmp_instr := instr.Instruction.(*runtime.InstrJmpIf)
-		return jmp_instr
+		return jmp_instr, nil
 	case 53: //If statement + WithElse
 		jmpIfInstr := words[0].(*runtime.InstrJmpIf)
 		jmpInstr := words[3].(*runtime.InstructionLabelPair)
@@ -332,7 +328,7 @@ func DoActions(rule_id int, words []any, storage *storage.Compiler, r *runtime.R
 				end:         end,
 			},
 			Second: &list,
-		}
+		}, nil
 	case 55: //WithElse, else if statement, no continuation
 		jmp_if := words[1].(*runtime.InstrJmpIf)
 		end := words[4].(*runtime.InstructionLabelPair)
@@ -344,7 +340,7 @@ func DoActions(rule_id int, words []any, storage *storage.Compiler, r *runtime.R
 				end:         end,
 			},
 			Second: nil,
-		}
+		}, nil
 
 	case 56: //WithElse, else condition
 		// Set label to first instruction, as this is not labelled (else condition has no JmpIf clause)
@@ -352,23 +348,22 @@ func DoActions(rule_id int, words []any, storage *storage.Compiler, r *runtime.R
 		end := words[3].(*runtime.InstructionLabelPair)
 
 		return List[condition_tree_entry]{
-
 			First: condition_tree_entry{
 				start_label: start.Label,
 				jmp:         nil,
 				end:         end,
 			},
 			Second: nil,
-		}
+		}, nil
 	case 57: // End conditional statement that is part of a larger conditional statement
 		// At end of conditional block, we must jump to skip over the other conditionals
-		return storage.LoadInstruction(&runtime.InstrJmp{})
+		return storage.LoadInstruction(&runtime.InstrJmp{}), nil
 	case 58: // NTBeginElseIf, used to label the first instruction in the else-if construct.
 		label := storage.NewAutoLabel()
 		storage.NewLabel(label)
-		return label
+		return label, nil
 	case 59: // arithmetic: modulo
-		return integerArithmetic(words, storage, runtime.MOD)
+		return integerArithmetic(words, storage, runtime.MOD), nil
 	case 60: // return Expr
 		storage.LoadInstruction(&runtime.InstrExitFunction{
 			RetVal: words[1].(variables.Symbol),
@@ -390,45 +385,48 @@ func DoActions(rule_id int, words []any, storage *storage.Compiler, r *runtime.R
 			BaseType:     variables.FUNC,
 			ArgumentList: arg_list,
 			ReturnType:   &return_type,
-		}
+		}, nil
 	case 62: //Type list - part of list
 		list := words[2].(List[variables.TypeDefinition])
 		return List[variables.TypeDefinition]{
 			First:  words[0].(variables.TypeDefinition),
 			Second: &list,
-		}
+		}, nil
 	case 63: //Type list - final type
 		return List[variables.TypeDefinition]{
 			First:  words[0].(variables.TypeDefinition),
 			Second: nil,
-		}
+		}, nil
 	case 64: //NTTypeVar ->  function () return_type  (no arguments)
 		ret_type := words[3].(variables.TypeDefinition)
 		return variables.TypeDefinition{
 			ReturnType: &ret_type,
 			BaseType:   variables.FUNC,
-		}
+		}, nil
 	case 65: //FunctionDefinition: 0 arguments "identifier () return_type"
 		ret_type := words[3].(variables.TypeDefinition)
 		def := variables.TypeDefinition{
 			BaseType:   variables.FUNC,
 			ReturnType: &ret_type,
 		}
-		storage.NewFunction(words[0].(string), def)
-		return def
+		err := storage.NewFunction(words[0].(string), def)
+		if err != nil {
+			return nil, err
+		}
+		return def, nil
 	case 66: // Call function, 0 arguments
 		var arg_list []variables.Symbol
 		func_name := words[0].(string)
 		sym, err := doFunctionCall(func_name, arg_list, storage)
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 		return FunctionCall{
 			ArgList:    arg_list,
 			FuncSymbol: sym,
-		}
+		}, nil
 	case 67: // Implicit function definition: TypeDefiniiton + FunctionBody
-		return words[0].(variables.Symbol)
+		return words[0].(variables.Symbol), nil
 	case 68: // New implicit function header "(arg_list) ret_type"
 		arg_list := words[1].(List[variables.Argument]).Iterate()
 		ret_type := words[3].(variables.TypeDefinition)
@@ -438,27 +436,27 @@ func DoActions(rule_id int, words []any, storage *storage.Compiler, r *runtime.R
 			ArgumentList: arg_list,
 			ReturnType:   &ret_type,
 		}
-		return storage.NewImplicitFunction(def)
+		return storage.NewImplicitFunction(def), nil
 	case 69: // New implicit function header w/o args: "() ret_type"
 		ret_type := words[2].(variables.TypeDefinition)
 		def := variables.TypeDefinition{
 			BaseType:   variables.FUNC,
 			ReturnType: &ret_type,
 		}
-		return storage.NewImplicitFunction(def)
+		return storage.NewImplicitFunction(def), nil
 	case 70: //Array, no arguments
 		arr_sym := storage.NewLiteral(variables.TypeDefinition{BaseType: variables.UNDETERMINED, IsArray: true})
 		storage.LoadInstruction(&runtime.InstrLoadArray{
 			DestSymbol: arr_sym,
 		})
-		return arr_sym
+		return arr_sym, nil
 	case 71: //Array, with arguments.
 		list := words[1].(List[variables.Symbol]).Iterate()
 		array_type := variables.UNDETERMINED
 		if len(list) > 0 {
 			for i := range list {
 				if !list[i].Type.Equals(list[0].Type) {
-					log.Fatalf("Elements in an array must be of the same type.")
+					return nil, fmt.Errorf("elements in an array must be of the same type")
 				}
 			}
 			array_type = list[0].Type.BaseType
@@ -468,16 +466,16 @@ func DoActions(rule_id int, words []any, storage *storage.Compiler, r *runtime.R
 			SrcSymbols: list,
 			DestSymbol: arr_sym,
 		})
-		return arr_sym
+		return arr_sym, nil
 	case 72:
-		return variables.TypeDefinition{BaseType: variables.UNDETERMINED, IsArray: true}
+		return variables.TypeDefinition{BaseType: variables.UNDETERMINED, IsArray: true}, nil
 	case 74: //Statement @ = NExpr;, initializes elevators
 		elev_array_sym, err := storage.NewVariable(variables.TypeDefinition{
 			BaseType: variables.INT,
 			IsArray:  true,
 		}, "@")
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 
 		count := words[2].(variables.Symbol)
@@ -503,7 +501,7 @@ func DoActions(rule_id int, words []any, storage *storage.Compiler, r *runtime.R
 			SymbolicLabel: func_call.FuncSymbol,
 			Fork:          true,
 		})
-		return ret_val
+		return ret_val, nil
 	//Ordinary function call: FunctionCall -> FunctionCallHeader
 	case 76:
 		func_call := words[0].(FunctionCall)
@@ -514,18 +512,14 @@ func DoActions(rule_id int, words []any, storage *storage.Compiler, r *runtime.R
 			SymbolicLabel: func_call.FuncSymbol,
 			Fork:          false,
 		})
-		return ret_val
+		return ret_val, nil
 	//Type declaration: array VarType -> BaseType [ ]
 	case 78:
 		_type := words[0].(variables.TypeDefinition)
 		_type.IsArray = true
-		return _type
+		return _type, nil
 	case 79:
-		sym, err := storage.GetNamedSymbol("@")
-		if err != nil {
-			log.Fatal(err)
-		}
-		return sym
+		return storage.GetNamedSymbol("@")
 	case 80: //Statement -> ForHeader ItemScopeBegin StatementList ItemLoopClose
 		for_entry := words[0].(for_entry)
 		for_exit := words[3].(for_exit)
@@ -544,7 +538,7 @@ func DoActions(rule_id int, words []any, storage *storage.Compiler, r *runtime.R
 		return for_entry{
 			start_label: start_label,
 			jmp_if:      instr.Instruction.(*runtime.InstrJmpIf),
-		}
+		}, nil
 	case 82: //ForHeader -> for Expr (conditioned for)
 		start_label := words[0].(string)
 		cond := words[1].(variables.Symbol)
@@ -557,21 +551,21 @@ func DoActions(rule_id int, words []any, storage *storage.Compiler, r *runtime.R
 		return for_entry{
 			start_label: start_label,
 			jmp_if:      instr.Instruction.(*runtime.InstrJmpIf),
-		}
+		}, nil
 	case 83: //NTEndLoopScope
 		jmp := storage.LoadInstruction(&runtime.InstrJmp{})
 		nop := storage.LoadLabeledInstruction(&runtime.InstrNOP{}, storage.NewAutoLabel())
 		return for_exit{
 			jmp:        jmp.Instruction.(*runtime.InstrJmp),
 			exit_label: nop.Label,
-		}
+		}, nil
 	case 84:
 		//Generate a label for the first instruction in the ForHeader
 		label := storage.NewAutoLabel()
 		storage.NewLabel(label)
-		return label
+		return label, nil
 	case 85:
-		return variables.TypeDefinition{BaseType: variables.STRING}
+		return variables.TypeDefinition{BaseType: variables.STRING}, nil
 	case 86: //Expr -> ItemText (string literal)
 		value := words[0].(string)
 		sym := storage.NewLiteral(variables.GetBaseTypeDef(variables.STRING))
@@ -579,7 +573,7 @@ func DoActions(rule_id int, words []any, storage *storage.Compiler, r *runtime.R
 			Dest:  sym,
 			Value: value,
 		})
-		return sym
+		return sym, nil
 	}
-	return words[0]
+	return words[0], nil
 }

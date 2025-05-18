@@ -54,7 +54,6 @@ func Load(test_file string, config config.Config) (bool, error) {
 			words <- word_stream[i]
 		}
 	}()
-
 	storage := storage.NewStorage()
 	runtime := runtime.New(config)
 

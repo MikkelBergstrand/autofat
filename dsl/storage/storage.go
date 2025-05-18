@@ -34,10 +34,10 @@ func NewStorage() Compiler {
 	return storage
 }
 
-func (s *Compiler) NewFunction(name string, definition variables.TypeDefinition) {
+func (s *Compiler) NewFunction(name string, definition variables.TypeDefinition) error {
 	func_symbol, err := s.NewVariable(definition, name)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	label := s.NewAutoLabel()
@@ -46,8 +46,12 @@ func (s *Compiler) NewFunction(name string, definition variables.TypeDefinition)
 		Label:  label,
 	})
 
-	s.newFunctionScope(definition)
+	err = s.newFunctionScope(definition)
+	if err != nil {
+		return err
+	}
 	s.NewLabel(label)
+	return nil
 }
 
 func (s *Compiler) NewImplicitFunction(definition variables.TypeDefinition) variables.Symbol {
@@ -64,16 +68,17 @@ func (s *Compiler) NewImplicitFunction(definition variables.TypeDefinition) vari
 	return func_symbol
 }
 
-func (s *Compiler) newFunctionScope(definition variables.TypeDefinition) {
+func (s *Compiler) newFunctionScope(definition variables.TypeDefinition) error {
 	s.NewScope()
 
 	// Create variable entries for the arguments. They are placed first in the function's symbol table
 	for _, arg := range definition.ArgumentList {
 		_, err := s.NewVariable(arg.Definition, arg.Identifier)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 	}
+	return nil
 }
 
 func (s *Compiler) NewScope() *scope {

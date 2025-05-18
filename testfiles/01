@@ -1,6 +1,7 @@
 
 int a = 0;
 string s = "Hei";
+s = 0;
 // Comment test
 func test() bool {
 	a = a +1;

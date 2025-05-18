@@ -4,13 +4,6 @@ import (
 	"autofat/dsl/tokens"
 )
 
-type lexer struct {
-	input string
-	start int
-	pos   int
-	width int
-	items chan tokens.Token
-}
 
 const eof rune = '\x00' // necessary in 2025?
 

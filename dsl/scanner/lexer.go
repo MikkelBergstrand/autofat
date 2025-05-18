@@ -8,9 +8,21 @@ import (
 	"unicode/utf8"
 )
 
+type lexer struct {
+	input string
+	start int
+	pos   int
+	width int
+	line  int // used to give error information about which line error occured.
+	col   int // used to give error information about which column error occured.
+	items chan tokens.Token
+}
+
 func Lex(input string) (*lexer, chan tokens.Token) {
 	l := &lexer{
 		input: input,
+		line:  1, // line is 1-indexed.
+		col:   1,
 		items: make(chan tokens.Token),
 	}
 	go l.run()
@@ -25,7 +37,12 @@ func (l *lexer) run() {
 }
 
 func (l *lexer) emit(t tokens.Symbol) {
-	l.items <- tokens.Token{Symbol: t, Lexeme: l.input[l.start:l.pos]}
+	l.items <- tokens.Token{
+		Symbol: t,
+		Lexeme: l.input[l.start:l.pos],
+		Line:   l.line,
+		Col:    l.col,
+	}
 	l.start = l.pos
 }
 
@@ -35,8 +52,16 @@ func (l *lexer) next() rune {
 		return eof
 	}
 	_rune, width := utf8.DecodeRuneInString(l.input[l.pos:])
+	// Assume that \n is not backed up, which is
+	// as of now never is.
+	if _rune == '\n' {
+		l.line += 1
+		l.col = 1
+	}
+
 	l.width = width
 	l.pos += l.width
+	l.col += 1
 	return _rune
 }
 
@@ -60,6 +85,7 @@ func (l *lexer) ignore() {
 
 func (l *lexer) backup() {
 	l.pos -= l.width
+	l.col -= 1
 }
 
 func (l *lexer) peek() rune {
@@ -94,7 +120,7 @@ func (l *lexer) acceptRegex(valid string) {
 func (l *lexer) errorf(format string, args ...interface{}) stateFn {
 	l.items <- tokens.Token{
 		Symbol: tokens.ItemError,
-		Lexeme: fmt.Sprintf(format, args...),
+		Lexeme: fmt.Sprintf(fmt.Sprintf("Error on line %d, col %d\n%s", l.line, l.col, format), args...),
 	}
 	return nil
 }

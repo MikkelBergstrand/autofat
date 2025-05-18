@@ -47,6 +47,8 @@ func (t Type) String() string {
 		return "thread"
 	case INVALID:
 		return ""
+	case STRING:
+		return "string"
 	}
 	log.Panicln("Invalid variable type!")
 	return ""

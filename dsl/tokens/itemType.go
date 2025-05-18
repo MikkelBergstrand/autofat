@@ -149,6 +149,8 @@ func (grammar *Grammar) NewCategoryID(item Symbol) Symbol {
 type Token struct {
 	Symbol Symbol
 	Lexeme string
+	Line   int
+	Col    int
 }
 
 func (l Token) String() string {
