@@ -88,9 +88,9 @@ func SetPacketLoss(percentage int) {
 
 func getSystemPorts(cfg config.Config) []uint16 {
 	var ports_reserved []uint16
-	for _, cfg_elev := range cfg.SimulatorAddresses {
-		ports_reserved = append(ports_reserved, cfg_elev.Port())
-		ports_reserved = append(ports_reserved, cfg_elev.Port())
+	for _, cfg_elev := range cfg.Elevators {
+		ports_reserved = append(ports_reserved, cfg_elev.EvaulationAddrPort.Port())
+		ports_reserved = append(ports_reserved, cfg_elev.UserAddrPort.Port())
 	}
 	return ports_reserved
 }

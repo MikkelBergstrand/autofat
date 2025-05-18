@@ -1,6 +1,7 @@
 package network
 
 import (
+	"autofat/config"
 	"os/exec"
 	"strings"
 )
@@ -9,8 +10,11 @@ var (
 	_containerNames []string
 )
 
-func InitNamespaceConfig(containerNames []string) {
-	_containerNames = containerNames
+func InitNamespaceConfig(cfg config.Config) {
+	clear(_containerNames)
+	for _, elev_cfg := range cfg.Elevators {
+		_containerNames = append(_containerNames, elev_cfg.NetworkNamespace)
+	}
 }
 
 func CommandInNamespace(id int, command string, args []string) *exec.Cmd {

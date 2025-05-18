@@ -1,67 +1,65 @@
 package config
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
+	"log"
 	"net/netip"
-	"time"
+	"os"
 )
 
 type ElevatorConfig struct {
-	UserAddrPort     netip.AddrPort
-	ExternalAddrPort netip.AddrPort
+	UserAddrPort       netip.AddrPort `json:"user_addr"`
+	EvaulationAddrPort netip.AddrPort `json:"evaluation_addr"`
+	NetworkNamespace   string         `json:"network_namespace"`
 }
 
 type Config struct {
-	StudentProgramDir       string
-	TestFile                string
-	NoTests                 bool
-	CompileParser           bool
-	StudentProgramWaitTime  time.Duration
-	NetworkNamespaces       [3]string
-	SimulatorAddresses      [3]netip.AddrPort
-	StudentProgramAddresses [3]netip.AddrPort
-	SimElevatorServerPath   string
+	StudentProgramDir      string            `json:"student_program"`
+	TestFile               string            `json:"test"`
+	CompileParser          bool              `json:"compile_parser"`
+	StudentProgramWaitTime int               `json:"student_program_wait_time"`
+	Elevators              [3]ElevatorConfig `json:"elevators"`
+	SimElevatorServerPath  string
+}
+
+func elevatorFlags(config *Config) {
+	for i := 0; i < 3; i++ {
+		//Namespaces
+		def := fmt.Sprintf("container%d", i)
+		flag.StringVar(&config.Elevators[i].NetworkNamespace, def, def,
+			fmt.Sprintf("Name of network namespace %d", i))
+
+		//IPs and ports
+		config.Elevators[i].UserAddrPort = parseIpPortFlag(fmt.Sprintf("studaddr%d", i), config.Elevators[i].UserAddrPort)
+		config.Elevators[i].EvaulationAddrPort = parseIpPortFlag(fmt.Sprintf("simaddr%d", i), config.Elevators[i].EvaulationAddrPort)
+	}
 }
 
 func LoadFromFlags() Config {
 	var config Config
 
-	config.SimulatorAddresses = [3]netip.AddrPort{
-		netip.MustParseAddrPort("10.0.0.1:12345"),
-		netip.MustParseAddrPort("10.0.0.2:12345"),
-		netip.MustParseAddrPort("10.0.0.3:12345"),
+	config_json, err := os.ReadFile("config.json")
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = json.Unmarshal(config_json, &config)
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	config.StudentProgramAddresses = [3]netip.AddrPort{
-		netip.MustParseAddrPort("10.0.0.1:12346"),
-		netip.MustParseAddrPort("10.0.0.2:12346"),
-		netip.MustParseAddrPort("10.0.0.3:12346"),
-	}
-
-	flag.StringVar(&config.TestFile, "test", "", "Name of test file to be run. Lies in 'testfiles/$FILENAME'")
-	flag.StringVar(&config.StudentProgramDir, "studentdir", "", "sets directory of student program (relevant to the executing directory)")
-	flag.StringVar(&config.SimElevatorServerPath, "simserverpath", "./SimElevatorServer", "path of the simulator executable.")
-	flag.BoolVar(&config.NoTests, "notests", false, "Only launches student programs / simulators. Does not run any test.")
-	flag.BoolVar(&config.CompileParser, "compile-parser", false, "Recreates the LR(1)-parser tables regardless of cache status.")
+	flag.StringVar(&config.TestFile, "test", config.TestFile, "Name of test file to be run. Lies in 'testfiles/$FILENAME'")
+	flag.StringVar(&config.StudentProgramDir, "studentdir", config.StudentProgramDir, "sets directory of student program (relevant to the executing directory)")
+	flag.StringVar(&config.SimElevatorServerPath, "simserverpath", config.SimElevatorServerPath, "path of the simulator executable.")
+	flag.BoolVar(&config.CompileParser, "compile-parser", config.CompileParser, "Recreates the LR(1)-parser tables regardless of cache status.")
 
 	var wait_time_seconds int
-	flag.IntVar(&wait_time_seconds, "studwaittime", 1, "How many seconds to wait between launching student programs.")
+	flag.IntVar(&wait_time_seconds, "studwaittime", config.StudentProgramWaitTime, "How many seconds to wait between launching student programs.")
 
-	for i := 0; i < 3; i++ {
-		//Namespaces
-		def := fmt.Sprintf("container%d", i)
-		flag.StringVar(&config.NetworkNamespaces[i], def, def,
-			fmt.Sprintf("Name of network namespace %d", i))
-
-		//IPs and ports
-		config.StudentProgramAddresses[i] = parseIpPortFlag(fmt.Sprintf("studaddr%d", i), config.StudentProgramAddresses[i])
-		config.SimulatorAddresses[i] = parseIpPortFlag(fmt.Sprintf("simaddr%d", i), config.SimulatorAddresses[i])
-	}
+	elevatorFlags(&config)
 
 	flag.Parse()
-
-	config.StudentProgramWaitTime = time.Second * time.Duration(wait_time_seconds)
 
 	if config.StudentProgramDir == "" {
 		panic("You must specify the student program directory with --studentdir!")
@@ -69,14 +67,15 @@ func LoadFromFlags() Config {
 	if config.TestFile == "" {
 		panic("You must specify a test to be ran!")
 	}
+
+	if len(config.Elevators) != 3 {
+		panic("Config must be specified for 3 elevators!")
+	}
 	return config
 }
 
 func (cfg Config) GetElevatorConfig(id int) ElevatorConfig {
-	return ElevatorConfig{
-		UserAddrPort:     cfg.StudentProgramAddresses[id],
-		ExternalAddrPort: cfg.SimulatorAddresses[id],
-	}
+	return cfg.Elevators[id]
 }
 
 func (cfg Config) GetAllElevatorConfigs() []ElevatorConfig {

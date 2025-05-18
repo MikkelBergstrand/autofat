@@ -73,11 +73,11 @@ func Get(id int) *Simulator {
 func Run(id int) {
 	elevator := &_simulators[id]
 	elevator.io = &elevio.ElevIO{}
-	fmt.Printf("Launching simulator process, port=%d, externalPort=%d\n", elevator.Config.UserAddrPort.Port(), elevator.Config.ExternalAddrPort.Port())
+	fmt.Printf("Launching simulator process, port=%d, externalPort=%d\n", elevator.Config.UserAddrPort.Port(), elevator.Config.EvaulationAddrPort.Port())
 
 	args := []string{
 		"--port", strconv.Itoa(int(elevator.Config.UserAddrPort.Port())),
-		"--externalPort", strconv.Itoa(int(elevator.Config.ExternalAddrPort.Port())),
+		"--externalPort", strconv.Itoa(int(elevator.Config.EvaulationAddrPort.Port())),
 		"--startFloor", strconv.Itoa(int(elevator.Params.InitialFloor)),
 	}
 	if elevator.Params.BetweenFloors {
@@ -91,7 +91,7 @@ func Run(id int) {
 	//Wait for process to start, then init the IO interface
 	time.Sleep(1 * time.Second)
 
-	elevator.io.Init(elevator.Config.ExternalAddrPort.String(), elevio.N_FLOORS, elevator.Chan_Kill)
+	elevator.io.Init(elevator.Config.EvaulationAddrPort.String(), elevio.N_FLOORS, elevator.Chan_Kill)
 
 	go elevator.io.PollFloorSensor(elevator.Chan_FloorSensor)
 	go elevator.io.PollFloorLight(elevator.Chan_FloorLight)

@@ -26,7 +26,7 @@ func (instr *InstrInitializeElevators) Execute(rt *RuntimeInstance) {
 
 	time.Sleep(500 * time.Millisecond)
 	studentprogram.InitalizeFromConfig(
-		rt.Runtime.Config.StudentProgramWaitTime,
+		time.Duration(rt.Runtime.Config.StudentProgramWaitTime)*time.Second,
 		rt.Runtime.Config.StudentProgramDir,
 		rt.Runtime.Config.GetAllElevatorConfigs(),
 		n_elevators)

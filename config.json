@@ -1,0 +1,21 @@
+{
+  "compile_parser":  false,
+  "student_program_wait_time": 1,
+  "elevators":[
+    {
+        "network_namespace": "container0",
+        "user_addr": "10.0.0.1:12345",
+        "evaluation_addr": "10.0.0.1:12346"
+    },
+    {
+        "network_namespace": "container1",
+        "user_addr": "10.0.0.2:12345",
+        "evaluation_addr": "10.0.0.2:12346"
+    },
+    {
+        "network_namespace": "container2",
+        "user_addr": "10.0.0.3:12345",
+        "evaluation_addr": "10.0.0.3:12346"
+    }
+  ]
+}

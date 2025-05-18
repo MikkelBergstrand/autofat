@@ -4,7 +4,6 @@ import (
 	"autofat/config"
 	"autofat/network"
 	"autofat/procmanager"
-	"fmt"
 	"log"
 	"os"
 	"regexp"
@@ -60,7 +59,6 @@ func InitalizeFromConfig(waitTime time.Duration, programDir string, config []con
 		_studentPrograms[i] = prog
 
 		go runprocess(i)
-		fmt.Println("Waiting ", waitTime)
 		time.Sleep(waitTime)
 	}
 }
@@ -78,20 +76,17 @@ func runprocess(elevatorId int) {
 	}
 
 	cmd.Dir = prog.ProgramDir
-	fmt.Println("Launching user process, as ", prog.Executable, prog.Params)
 	err := cmd.Start()
 	if err != nil {
 		log.Panic("Could not launch user process: ", err)
 	}
 
-	fmt.Println("User process ", prog.Executable, prog.Params, "running with PID", cmd.Process.Pid)
 	wasInterrupted := false
 
 	//Create thread to listen for kill signal.
 	go func() {
 		for {
 			<-prog.Chan_Kill
-			fmt.Println("Ending student program", elevatorId)
 			wasInterrupted = true
 			procmanager.KillProcess(cmd.Process.Pid)
 		}
@@ -121,13 +116,10 @@ func KillProgram(elevatorId int) {
 
 func KillAll() {
 	for i := range _studentPrograms {
-		fmt.Println("Killing student", i)
 		KillProgram(i)
-		fmt.Println("Killed")
 	}
 }
 
 func StartProgram(elevatorId int) {
-	fmt.Println("Starting student program ", elevatorId)
 	go runprocess(elevatorId)
 }
