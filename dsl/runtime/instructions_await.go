@@ -12,13 +12,13 @@ type InstrAwaitStateListen struct {
 	TimeoutSeconds variables.Symbol
 }
 
-func (instr *InstrAwaitStateListen) Execute(rt *RuntimeInstance) {
+func (instr *InstrAwaitStateListen) Execute(rt *thread) {
 	// Initialize a new state capturing channel
 	// if none exist at the symbol location.
-	if rt.Get(instr.AwaitVal) == nil {
-		timeout := time.NewTimer(time.Duration(rt.GetInt(instr.TimeoutSeconds) * int(time.Millisecond)))
+	if rt.get(instr.AwaitVal) == nil {
+		timeout := time.NewTimer(time.Duration(rt.getInt(instr.TimeoutSeconds) * int(time.Millisecond)))
 		stateChan := statemanager.RegisterStateChannel()
-		rt.Set(instr.AwaitVal, variables.AwaitVal{
+		rt.set(instr.AwaitVal, variables.AwaitVal{
 			Timeout:   timeout,
 			StateChan: stateChan,
 		})
@@ -32,9 +32,9 @@ type InstrAwait struct {
 	Timeout            variables.Symbol
 }
 
-func (instr *InstrAwait) Execute(runtime *RuntimeInstance) {
+func (instr *InstrAwait) Execute(runtime *thread) {
 	// Wait for new state
-	await_obj := runtime.Get(instr.AwaitVal).(variables.AwaitVal)
+	await_obj := runtime.get(instr.AwaitVal).(variables.AwaitVal)
 	stateChan := await_obj.StateChan
 	timeout := await_obj.Timeout
 
@@ -48,7 +48,7 @@ func (instr *InstrAwait) Execute(runtime *RuntimeInstance) {
 		}
 	case <-timeout.C:
 		fmt.Println("Timeout!")
-		runtime.Set(instr.Timeout, true)
+		runtime.set(instr.Timeout, true)
 		return
 	}
 
@@ -67,17 +67,17 @@ type InstrEndAwait struct {
 	AwaitVal           variables.Symbol
 }
 
-func (instr *InstrEndAwait) Execute(runtime *RuntimeInstance) {
-	await_val := runtime.GetBool(instr.ConditionFuncValue)
+func (instr *InstrEndAwait) Execute(runtime *thread) {
+	await_val := runtime.getBool(instr.ConditionFuncValue)
 
 	fmt.Println(await_val)
-	if !runtime.GetBool(instr.Timeout) && !await_val {
+	if !runtime.getBool(instr.Timeout) && !await_val {
 		jmp := InstrJmp{
 			Label: instr.Label,
 		}
 		jmp.Execute(runtime)
 	} else {
-		await := runtime.Get(instr.AwaitVal).(variables.AwaitVal)
+		await := runtime.get(instr.AwaitVal).(variables.AwaitVal)
 		statemanager.UnregisterStateChannel(await.StateChan)
 	}
 }

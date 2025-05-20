@@ -14,15 +14,15 @@ type InstrInitializeElevators struct {
 	ElevArraySym variables.Symbol
 }
 
-func (instr *InstrInitializeElevators) Execute(rt *RuntimeInstance) {
-	n_elevators := rt.Get(instr.Count).(int)
+func (instr *InstrInitializeElevators) Execute(rt *thread) {
+	n_elevators := rt.get(instr.Count).(int)
 	var elev_array []any
 	for i := 0; i < n_elevators; i++ {
 		simulator.Init(rt.Runtime.Config.GetElevatorConfig(i), simulator.InitializationParams{InitialFloor: 0, BetweenFloors: false})
 		simulator.Run(i)
 		elev_array = append(elev_array, i)
 	}
-	rt.Set(instr.ElevArraySym, elev_array)
+	rt.set(instr.ElevArraySym, elev_array)
 
 	time.Sleep(500 * time.Millisecond)
 	studentprogram.InitalizeFromConfig(
@@ -40,7 +40,7 @@ type InstrGetFloor struct {
 	Result      variables.Symbol
 }
 
-func (instr *InstrGetFloor) Execute(rt *RuntimeInstance) {
+func (instr *InstrGetFloor) Execute(rt *thread) {
 	collapseState(rt, instr.Result, instr.ArraySymbol,
 		func(state statemanager.ElevatorState) int {
 			return state.Floor
@@ -52,7 +52,7 @@ type InstrGetFloorLight struct {
 	Result      variables.Symbol
 }
 
-func (instr *InstrGetFloorLight) Execute(rt *RuntimeInstance) {
+func (instr *InstrGetFloorLight) Execute(rt *thread) {
 	collapseState(rt, instr.Result, instr.ArraySymbol,
 		func(state statemanager.ElevatorState) int {
 			return state.FloorLamp
@@ -66,9 +66,9 @@ type InstrGetStatusLight struct {
 	Result      variables.Symbol
 }
 
-func (instr *InstrGetStatusLight) Execute(rt *RuntimeInstance) {
-	floor := rt.GetInt(instr.Floor)
-	ordertype := rt.Get(instr.OrderType).(elevio.ButtonType)
+func (instr *InstrGetStatusLight) Execute(rt *thread) {
+	floor := rt.getInt(instr.Floor)
+	ordertype := rt.get(instr.OrderType).(elevio.ButtonType)
 
 	collapseState(rt, instr.Result, instr.ArraySymbol,
 		func(state statemanager.ElevatorState) int {
@@ -85,21 +85,21 @@ func (instr *InstrGetStatusLight) Execute(rt *RuntimeInstance) {
 // This integer is then compared across all inputted elevators.
 // If it is non-equal for some elevators, it sets result to -1
 // If it is equal for all elevators, it sets result to that value.
-func collapseState(rt *RuntimeInstance, result variables.Symbol, elevatorListSym variables.Symbol, stateFunc func(state statemanager.ElevatorState) int) {
-	arr := rt.Get(elevatorListSym).([]any)
-	state := *rt.GetState()
+func collapseState(rt *thread, result variables.Symbol, elevatorListSym variables.Symbol, stateFunc func(state statemanager.ElevatorState) int) {
+	arr := rt.get(elevatorListSym).([]any)
+	state := *rt.getState()
 
 	if len(arr) == 0 {
-		rt.Set(result, -1)
+		rt.set(result, -1)
 		return
 	}
 
 	val := stateFunc(state[arr[0].(int)])
 	for i := 1; i < len(arr); i++ {
 		if stateFunc(state[arr[i].(int)]) != val {
-			rt.Set(result, -1)
+			rt.set(result, -1)
 			return
 		}
 	}
-	rt.Set(result, val)
+	rt.set(result, val)
 }

@@ -2,10 +2,12 @@ package runtime
 
 import (
 	"autofat/config"
+	"autofat/dsl/color"
 	"autofat/dsl/structure"
 	"autofat/dsl/variables"
 	"autofat/statemanager"
 	"log"
+	"reflect"
 )
 
 const RT_EXIT = 1000000
@@ -19,7 +21,7 @@ type FunctionVar struct {
 type address_stack_entry struct {
 	start   int
 	end     int
-	runtime *RuntimeInstance
+	runtime *thread
 }
 
 type Runtime struct {
@@ -28,14 +30,14 @@ type Runtime struct {
 	Config       config.Config
 }
 
-type RuntimeInstance struct {
+type thread struct {
 	Retval         bool
 	Runtime        *Runtime
-	Parent         *RuntimeInstance
+	Parent         *thread
 	Variables      []any
 	Programcounter int
 	CallStack      structure.Stack[ActivationRegister]
-	Instances      []RuntimeInstance
+	Instances      []thread
 }
 
 type ActivationRegister struct {
@@ -54,12 +56,12 @@ func New(config config.Config) *Runtime {
 	return &runTime
 }
 
-func (runtime *Runtime) NewInstance(entryPoint int, parent *RuntimeInstance) *RuntimeInstance {
+func (runtime *Runtime) NewInstance(entryPoint int, parent *thread) *thread {
 	first_ar := ActivationRegister{
 		SavedPC: 0,
 	}
 
-	instance := RuntimeInstance{
+	instance := thread{
 		Retval:         true,
 		Programcounter: entryPoint,
 		Runtime:        runtime,
@@ -76,7 +78,7 @@ func (runtime *Runtime) NewInstance(entryPoint int, parent *RuntimeInstance) *Ru
 	return &instance
 }
 
-func (runtime *Runtime) GetLabel(label string) int {
+func (runtime *Runtime) getLabel(label string) int {
 	value, ok := runtime.Labels[label]
 	if !ok {
 		log.Fatalf("No such label %s", label)
@@ -91,7 +93,7 @@ func (ar *ActivationRegister) getStackTop() int {
 func (ar *ActivationRegister) setStackTop(i int) {
 	ar.AddressStack.PeekRef().end = i
 }
-func (rt *RuntimeInstance) PushAddress() {
+func (rt *thread) pushAddress() {
 	ar := rt.CallStack.PeekRef()
 	ar.AddressStack.Push(address_stack_entry{
 		runtime: rt,
@@ -101,11 +103,11 @@ func (rt *RuntimeInstance) PushAddress() {
 	//fmt.Println("Adress stack pushed at ", ar)
 }
 
-func (rt *RuntimeInstance) PopAddress() {
+func (rt *thread) popAddress() {
 	rt.CallStack.PeekRef().AddressStack.Pop()
 }
 
-func (runtime *RuntimeInstance) PushCall(func_address_stack structure.Stack[address_stack_entry], state *statemanager.States) {
+func (runtime *thread) pushCall(func_address_stack structure.Stack[address_stack_entry], state *statemanager.States) {
 	// The address stack in the function must have an address stack equal to how it looked
 	// when the function was defined.
 	top_of_callstack := runtime.CallStack.Peek()
@@ -127,7 +129,7 @@ func (runtime *RuntimeInstance) PushCall(func_address_stack structure.Stack[addr
 	//fmt.Println("PushCall with AR = ", runtime.CallStack.PeekRef().getStackTop(), func_address_stack)
 }
 
-func (runtime *RuntimeInstance) PopCall() {
+func (runtime *thread) popCall() {
 	val := runtime.CallStack.Pop()
 	runtime.Programcounter = val.SavedPC - 1
 	if len(runtime.CallStack) > 0 {
@@ -147,13 +149,9 @@ func (runtime *Runtime) LoadInstructions(instructions []InstructionLabelPair) (s
 	return start, end
 }
 
-func (runTime *Runtime) NextInstruction() int {
-	return len(runTime.Instructions)
-}
-
-func (runtime *RuntimeInstance) Run(done chan bool) {
+func (runtime *thread) Run(done chan bool) {
 	for runtime.Programcounter != RT_EXIT+1 {
-		//color.Println(color.Yellow, &runtime, reflect.TypeOf(runtime.Runtime.Instructions[runtime.Programcounter]), "PC = ", runtime.Programcounter)
+		color.Println(color.Yellow, &runtime, reflect.TypeOf(runtime.Runtime.Instructions[runtime.Programcounter]), "PC = ", runtime.Programcounter)
 		runtime.Runtime.Instructions[runtime.Programcounter].Execute(runtime)
 		runtime.Programcounter += 1
 	}
@@ -161,7 +159,7 @@ func (runtime *RuntimeInstance) Run(done chan bool) {
 	done <- runtime.Retval
 }
 
-func (runtime *RuntimeInstance) Fork(entryPoint int, addressStack structure.Stack[address_stack_entry]) *RuntimeInstance {
+func (runtime *thread) fork(entryPoint int, addressStack structure.Stack[address_stack_entry]) *thread {
 	new_runtime := runtime.Runtime.NewInstance(entryPoint, runtime)
 	new_addr_stack := addressStack.Copy()
 	new_addr_stack.Push(address_stack_entry{
@@ -172,7 +170,7 @@ func (runtime *RuntimeInstance) Fork(entryPoint int, addressStack structure.Stac
 	return new_runtime
 }
 
-func (r *RuntimeInstance) AddressFromSymbol(symbol variables.Symbol) (*RuntimeInstance, int) {
+func (r *thread) addressFromSymbol(symbol variables.Symbol) (*thread, int) {
 	top_of_callstack := r.CallStack.PeekRef()
 
 	//fmt.Println("Resolving address symbol", symbol, top_of_callstack.AddressStack)
@@ -180,25 +178,25 @@ func (r *RuntimeInstance) AddressFromSymbol(symbol variables.Symbol) (*RuntimeIn
 	return ar.runtime, ar.start + symbol.Offset
 }
 
-func (s *RuntimeInstance) Get(symbol variables.Symbol) any {
-	rt, addr := s.AddressFromSymbol(symbol)
+func (s *thread) get(symbol variables.Symbol) any {
+	rt, addr := s.addressFromSymbol(symbol)
 	resolve := rt.Variables[addr]
 
 	//fmt.Printf("Get %v addr=%d rt=%p\n", symbol, addr, rt)
 	return resolve
 }
 
-func (r *RuntimeInstance) GetInt(symbol variables.Symbol) int {
-	val := r.Get(symbol).(int)
+func (r *thread) getInt(symbol variables.Symbol) int {
+	val := r.get(symbol).(int)
 
 	return val
 }
 
-func (r *RuntimeInstance) GetBool(symbol variables.Symbol) bool {
-	return r.Get(symbol).(bool)
+func (r *thread) getBool(symbol variables.Symbol) bool {
+	return r.get(symbol).(bool)
 }
 
-func (r *RuntimeInstance) GetState() *statemanager.States {
+func (r *thread) getState() *statemanager.States {
 	for i := len(r.CallStack) - 1; i >= 0; i-- {
 		if r.CallStack[i].State != nil {
 			return r.CallStack[i].State
@@ -207,8 +205,8 @@ func (r *RuntimeInstance) GetState() *statemanager.States {
 	return nil
 }
 
-func (s *RuntimeInstance) Set(symbol variables.Symbol, value any) {
-	rt, addr := s.AddressFromSymbol(symbol)
+func (s *thread) set(symbol variables.Symbol, value any) {
+	rt, addr := s.addressFromSymbol(symbol)
 	rt.Variables[addr] = value
 	if s == rt {
 		stack_top := s.CallStack.PeekRef().getStackTop()
@@ -220,12 +218,12 @@ func (s *RuntimeInstance) Set(symbol variables.Symbol, value any) {
 	//fmt.Printf("Set %v value=%v addr=%d rt=%p\n", symbol, value, addr, rt)
 }
 
-func (rt *RuntimeInstance) Exit(value bool) {
+func (rt *thread) exit(value bool) {
 	rt.Programcounter = RT_EXIT
 	rt.Retval = value
 
 	//Propagate exit.
 	if rt.Parent != nil {
-		rt.Parent.Exit(value)
+		rt.Parent.exit(value)
 	}
 }

@@ -22,7 +22,7 @@ type InstructionLabelPair struct {
 	Label       string
 }
 type Instruction interface {
-	Execute(*RuntimeInstance)
+	Execute(*thread)
 }
 
 type Operator int
@@ -66,18 +66,18 @@ type InstrAssign struct {
 	Source variables.Symbol
 }
 
-func (instr *InstrArithmetic) Execute(runtime *RuntimeInstance) {
+func (instr *InstrArithmetic) Execute(runtime *thread) {
 	switch instr.Operator {
 	case ADD:
-		runtime.Set(instr.Result, runtime.GetInt(instr.A)+runtime.GetInt(instr.B))
+		runtime.set(instr.Result, runtime.getInt(instr.A)+runtime.getInt(instr.B))
 	case MULT:
-		runtime.Set(instr.Result, runtime.GetInt(instr.A)*runtime.GetInt(instr.B))
+		runtime.set(instr.Result, runtime.getInt(instr.A)*runtime.getInt(instr.B))
 	case DIV:
-		runtime.Set(instr.Result, runtime.GetInt(instr.A)/runtime.GetInt(instr.B))
+		runtime.set(instr.Result, runtime.getInt(instr.A)/runtime.getInt(instr.B))
 	case SUB:
-		runtime.Set(instr.Result, runtime.GetInt(instr.A)-runtime.GetInt(instr.B))
+		runtime.set(instr.Result, runtime.getInt(instr.A)-runtime.getInt(instr.B))
 	case MOD:
-		runtime.Set(instr.Result, runtime.GetInt(instr.A)%runtime.GetInt(instr.B))
+		runtime.set(instr.Result, runtime.getInt(instr.A)%runtime.getInt(instr.B))
 	}
 }
 
@@ -88,21 +88,21 @@ type InstrCompareInt struct {
 	Result   variables.Symbol
 }
 
-func (instr *InstrCompareInt) Execute(runtime *RuntimeInstance) {
+func (instr *InstrCompareInt) Execute(runtime *thread) {
 	switch instr.Operator {
 	case EQUALS:
-		runtime.Set(instr.Result, runtime.GetInt(instr.A) == runtime.GetInt(instr.B))
+		runtime.set(instr.Result, runtime.getInt(instr.A) == runtime.getInt(instr.B))
 	case NOTEQUALS:
-		runtime.Set(instr.Result, runtime.GetInt(instr.A) != runtime.GetInt(instr.B))
+		runtime.set(instr.Result, runtime.getInt(instr.A) != runtime.getInt(instr.B))
 	case LESS:
-		runtime.Set(instr.Result, runtime.GetInt(instr.A) < runtime.GetInt(instr.B))
+		runtime.set(instr.Result, runtime.getInt(instr.A) < runtime.getInt(instr.B))
 	case LESSOREQUAL:
-		runtime.Set(instr.Result, runtime.GetInt(instr.A) <= runtime.GetInt(instr.B))
+		runtime.set(instr.Result, runtime.getInt(instr.A) <= runtime.getInt(instr.B))
 	case GREATER:
-		runtime.Set(instr.Result, runtime.GetInt(instr.A) > runtime.GetInt(instr.B))
+		runtime.set(instr.Result, runtime.getInt(instr.A) > runtime.getInt(instr.B))
 	case GREATEROREQUAL:
 		//fmt.Println("Comparing")
-		runtime.Set(instr.Result, runtime.GetInt(instr.A) >= runtime.GetInt(instr.B))
+		runtime.set(instr.Result, runtime.getInt(instr.A) >= runtime.getInt(instr.B))
 	}
 }
 
@@ -113,16 +113,16 @@ type InstrCompareBool struct {
 	Result   variables.Symbol
 }
 
-func (instr *InstrCompareBool) Execute(runtime *RuntimeInstance) {
+func (instr *InstrCompareBool) Execute(runtime *thread) {
 	switch instr.Operator {
 	case EQUALS:
-		runtime.Set(instr.Result, runtime.GetBool(instr.A) == runtime.GetBool(instr.B))
+		runtime.set(instr.Result, runtime.getBool(instr.A) == runtime.getBool(instr.B))
 	case NOTEQUALS:
-		runtime.Set(instr.Result, runtime.GetBool(instr.A) != runtime.GetBool(instr.B))
+		runtime.set(instr.Result, runtime.getBool(instr.A) != runtime.getBool(instr.B))
 	case AND:
-		runtime.Set(instr.Result, runtime.GetBool(instr.A) && runtime.GetBool(instr.B))
+		runtime.set(instr.Result, runtime.getBool(instr.A) && runtime.getBool(instr.B))
 	case OR:
-		runtime.Set(instr.Result, runtime.GetBool(instr.A) || runtime.GetBool(instr.B))
+		runtime.set(instr.Result, runtime.getBool(instr.A) || runtime.getBool(instr.B))
 	}
 }
 
@@ -130,16 +130,16 @@ type InstrJmp struct {
 	Label string
 }
 
-func (instr *InstrJmp) Execute(runtime *RuntimeInstance) {
-	runtime.Programcounter = runtime.Runtime.GetLabel(instr.Label) - 1 // decrement, since it is autoincremented
+func (instr *InstrJmp) Execute(runtime *thread) {
+	runtime.Programcounter = runtime.Runtime.getLabel(instr.Label) - 1 // decrement, since it is autoincremented
 }
 
 type InstrJmpVar struct {
 	Label string
 }
 
-func (instr *InstrJmpVar) Execute(runtime *RuntimeInstance) {
-	runtime.Programcounter = runtime.Runtime.GetLabel(instr.Label) - 1
+func (instr *InstrJmpVar) Execute(runtime *thread) {
+	runtime.Programcounter = runtime.Runtime.getLabel(instr.Label) - 1
 }
 
 type InstrJmpIf struct {
@@ -147,9 +147,9 @@ type InstrJmpIf struct {
 	Condition variables.Symbol
 }
 
-func (instr *InstrJmpIf) Execute(runtime *RuntimeInstance) {
-	if !runtime.GetBool(instr.Condition) {
-		runtime.Programcounter = runtime.Runtime.GetLabel(instr.Label) - 1
+func (instr *InstrJmpIf) Execute(runtime *thread) {
+	if !runtime.getBool(instr.Condition) {
+		runtime.Programcounter = runtime.Runtime.getLabel(instr.Label) - 1
 	}
 }
 
@@ -158,8 +158,8 @@ type InstrLoadImmediate struct {
 	Value any
 }
 
-func (instr *InstrLoadImmediate) Execute(runtime *RuntimeInstance) {
-	runtime.Set(instr.Dest, instr.Value)
+func (instr *InstrLoadImmediate) Execute(runtime *thread) {
+	runtime.set(instr.Dest, instr.Value)
 }
 
 type InstrLoadFunction struct {
@@ -167,24 +167,24 @@ type InstrLoadFunction struct {
 	Label  string
 }
 
-func (instr *InstrLoadFunction) Execute(runtime *RuntimeInstance) {
+func (instr *InstrLoadFunction) Execute(runtime *thread) {
 	// Copy the current address stack.
-	runtime.Set(instr.Symbol, FunctionVar{
+	runtime.set(instr.Symbol, FunctionVar{
 		Label:        instr.Label,
 		AddressStack: runtime.CallStack.PeekRef().AddressStack.Copy(),
 	})
 }
 
-func (instr *InstrAssign) Execute(runtime *RuntimeInstance) {
-	runtime.Set(instr.Dest, runtime.Get(instr.Source))
+func (instr *InstrAssign) Execute(runtime *thread) {
+	runtime.set(instr.Dest, runtime.get(instr.Source))
 }
 
 type InstructionEcho struct {
 	A variables.Symbol
 }
 
-func (instr *InstructionEcho) Execute(runtime *RuntimeInstance) {
-	rt, addr := runtime.AddressFromSymbol(instr.A)
+func (instr *InstructionEcho) Execute(runtime *thread) {
+	rt, addr := runtime.addressFromSymbol(instr.A)
 	color.Println(color.Green, rt.Variables[addr])
 }
 
@@ -196,14 +196,17 @@ type InstrCallFunction struct {
 	Fork          bool
 }
 
-func (instr *InstrCallFunction) Execute(runtime *RuntimeInstance) {
+func (instr *InstrCallFunction) Execute(runtime *thread) {
 	//Fetch and copy argument values
 	var arg_values []any
 	for i := range instr.Arguments {
-		arg_values = append(arg_values, runtime.Get(instr.Arguments[i]))
+		arg_values = append(arg_values, runtime.get(instr.Arguments[i]))
 	}
 	//Fetch func_ptr
-	func_ptr := runtime.Get(instr.SymbolicLabel).(FunctionVar)
+	fmt.Printf("runtime %p ", runtime)
+	fmt.Println("func_sym", instr.SymbolicLabel)
+	fmt.Println(runtime.CallStack.Peek().AddressStack)
+	func_ptr := runtime.get(instr.SymbolicLabel).(FunctionVar)
 	conv_addr_stack := func_ptr.AddressStack.Copy()
 
 	if !instr.Fork {
@@ -212,11 +215,11 @@ func (instr *InstrCallFunction) Execute(runtime *RuntimeInstance) {
 		top_ar.Retval = instr.RetVal
 		//fmt.Println("Bound ret val to", top_ar.Retval)
 
-		runtime.PushCall(conv_addr_stack, instr.State)
+		runtime.pushCall(conv_addr_stack, instr.State)
 
 		// Once "inside" the function, load argument values
 		for i := range arg_values {
-			runtime.Set(variables.Symbol{Offset: i, Scope: 0, Type: instr.Arguments[i].Type}, arg_values[i])
+			runtime.set(variables.Symbol{Offset: i, Scope: 0, Type: instr.Arguments[i].Type}, arg_values[i])
 		}
 
 		//Then, jump to the function's label
@@ -227,18 +230,18 @@ func (instr *InstrCallFunction) Execute(runtime *RuntimeInstance) {
 	} else {
 		//Get thread object
 		done := make(chan bool)
-		runtime.Set(instr.RetVal, variables.Thread{
+		runtime.set(instr.RetVal, variables.Thread{
 			Done: done,
 		})
 
 		// Create a new runtime
 		fmt.Println(conv_addr_stack)
-		new_runtime := runtime.Fork(runtime.Runtime.Labels[func_ptr.Label], conv_addr_stack)
+		new_runtime := runtime.fork(runtime.Runtime.Labels[func_ptr.Label], conv_addr_stack)
 
-		new_runtime.PushAddress()
+		fmt.Println(new_runtime.CallStack.PeekRef().AddressStack)
 		// Set arguments in new runtime
 		for i := range arg_values {
-			new_runtime.Set(variables.Symbol{Offset: i, Scope: 0, Type: instr.Arguments[i].Type}, arg_values[i])
+			new_runtime.set(variables.Symbol{Offset: i, Scope: 0, Type: instr.Arguments[i].Type}, arg_values[i])
 		}
 		go new_runtime.Run(done)
 		fmt.Println("Thread forked!")
@@ -248,24 +251,24 @@ func (instr *InstrCallFunction) Execute(runtime *RuntimeInstance) {
 
 type InstrBeginScope struct{}
 
-func (instr *InstrBeginScope) Execute(runtime *RuntimeInstance) {
-	runtime.PushAddress()
+func (instr *InstrBeginScope) Execute(runtime *thread) {
+	runtime.pushAddress()
 }
 
 type InstrEndScope struct{}
 
-func (instr *InstrEndScope) Execute(runtime *RuntimeInstance) {
-	runtime.PopAddress()
+func (instr *InstrEndScope) Execute(runtime *thread) {
+	runtime.popAddress()
 }
 
 type InstrExitFunction struct {
 	RetVal variables.Symbol
 }
 
-func (instr *InstrExitFunction) Execute(runtime *RuntimeInstance) {
-	ret_val := runtime.Get(instr.RetVal)
+func (instr *InstrExitFunction) Execute(runtime *thread) {
+	ret_val := runtime.get(instr.RetVal)
 
-	runtime.PopCall()
+	runtime.popCall()
 
 	//If callstack is empty, this thread is done.
 	if len(runtime.CallStack) == 0 {
@@ -274,7 +277,7 @@ func (instr *InstrExitFunction) Execute(runtime *RuntimeInstance) {
 	} else {
 		top_ar := runtime.CallStack.PeekRef()
 		//fmt.Println("Ret val on exit", top_ar.Retval, ret_val)
-		runtime.Set(top_ar.Retval, ret_val)
+		runtime.set(top_ar.Retval, ret_val)
 	}
 
 }
@@ -282,35 +285,35 @@ func (instr *InstrExitFunction) Execute(runtime *RuntimeInstance) {
 // Does nothing.
 type InstrNOP struct{}
 
-func (instr *InstrNOP) Execute(runtime *RuntimeInstance) {}
+func (instr *InstrNOP) Execute(runtime *thread) {}
 
 type InstrLoadArray struct {
 	SrcSymbols []variables.Symbol
 	DestSymbol variables.Symbol
 }
 
-func (instr *InstrLoadArray) Execute(rt *RuntimeInstance) {
+func (instr *InstrLoadArray) Execute(rt *thread) {
 	var arr []any
 	for _, sym := range instr.SrcSymbols {
-		arr = append(arr, rt.Get(sym))
+		arr = append(arr, rt.get(sym))
 	}
-	rt.Set(instr.DestSymbol, arr)
+	rt.set(instr.DestSymbol, arr)
 }
 
 type InstrExit struct {
 	Value variables.Symbol
 }
 
-func (instr *InstrExit) Execute(rt *RuntimeInstance) {
-	rt.Exit(rt.GetBool(instr.Value))
+func (instr *InstrExit) Execute(rt *thread) {
+	rt.exit(rt.getBool(instr.Value))
 }
 
 type InstrSleep struct {
 	Duration variables.Symbol
 }
 
-func (instr *InstrSleep) Execute(rt *RuntimeInstance) {
-	msec := rt.GetInt(instr.Duration)
+func (instr *InstrSleep) Execute(rt *thread) {
+	msec := rt.getInt(instr.Duration)
 	time.Sleep(time.Duration(msec) * time.Millisecond)
 }
 
@@ -318,8 +321,8 @@ type InstrSync struct {
 	Threads variables.Symbol
 }
 
-func (instr *InstrSync) Execute(rt *RuntimeInstance) {
-	threads := rt.Get(instr.Threads).([]any)
+func (instr *InstrSync) Execute(rt *thread) {
+	threads := rt.get(instr.Threads).([]any)
 	n_done_threads := 0
 	n_threads := len(threads)
 	sig := make(chan bool)

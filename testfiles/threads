@@ -1,0 +1,14 @@
+
+int v = 2000;
+
+func thread() int {
+  func myFunc() int {
+    sleep(v);
+    return 0;
+  }
+  return myFunc();
+}
+
+~thread();
+sleep(5000);
+
