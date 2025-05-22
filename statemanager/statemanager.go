@@ -40,6 +40,10 @@ func RegisterStateChannel() StateChannel {
 	ret := make(StateChannel, BUFFER_SIZE)
 	fmt.Println("Adding listener")
 	_chan_addListener <- ret
+	// send the state once to capture state as it was when registering.
+	_pollAgain <- triggerMessage{
+		Type: TRIGGER_NEW_LISTENER,
+	}
 	return ret
 }
 
@@ -58,7 +62,7 @@ func Init() {
 			case trigger, more := <-_pollAgain:
 				if !more {
 					for i := range _stateChannels {
-						fmt.Println("Closing state channel", i, "of", len(_stateChannels))
+						fmt.Println("Closing state channel", (i + 1), "of", len(_stateChannels))
 						close(_stateChannels[i])
 					}
 					return

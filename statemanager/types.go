@@ -8,7 +8,6 @@ type t_eventData struct {
 	Id      string
 }
 
-
 type triggerMessage struct {
 	Type   trigger
 	Params interface{}
@@ -25,6 +24,7 @@ const (
 	TRIGGER_DIRECTION
 	TRIGGER_CRASH
 	TRIGGER_OOB
+	TRIGGER_NEW_LISTENER
 )
 
 func (t trigger) String() string {
@@ -37,6 +37,7 @@ func (t trigger) String() string {
 		TRIGGER_DIRECTION:    "DIRECTION",
 		TRIGGER_CRASH:        "CRASH",
 		TRIGGER_OOB:          "OOB",
+		TRIGGER_NEW_LISTENER: "NEW_LISTENER",
 	}
 	return toStr[t]
 }

@@ -14,12 +14,17 @@ import (
 )
 
 func Load(test_file string, config config.Config) (bool, error) {
-	fmt.Println("Loading...")
-	file_contents, err := os.ReadFile("testfiles/" + test_file)
+	preamble, err := os.ReadFile("common")
 	if err != nil {
 		return false, err
 	}
 
+	test_src, err := os.ReadFile("testfiles/" + test_file)
+	if err != nil {
+		return false, err
+	}
+
+	file_contents := string(preamble) + string(test_src)
 	start := time.Now()
 	_, scanner_stream := scanner.Lex(string(file_contents))
 

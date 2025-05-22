@@ -37,7 +37,7 @@ type thread struct {
 	Variables      []any
 	Programcounter int
 	CallStack      structure.Stack[ActivationRegister]
-	Instances      []thread
+	Children       []*thread
 }
 
 type ActivationRegister struct {
@@ -167,6 +167,7 @@ func (runtime *thread) fork(entryPoint int, addressStack structure.Stack[address
 		start:   0,
 		end:     0})
 	new_runtime.CallStack.PeekRef().AddressStack = new_addr_stack
+	runtime.Children = append(runtime.Children, new_runtime)
 	return new_runtime
 }
 
@@ -223,7 +224,14 @@ func (rt *thread) exit(value bool) {
 	rt.Retval = value
 
 	//Propagate exit.
-	if rt.Parent != nil {
+	if rt.Parent != nil && rt.Programcounter < RT_EXIT {
 		rt.Parent.exit(value)
 	}
+
+	for i := range rt.Children {
+		if rt.Children[i].Programcounter < RT_EXIT {
+			rt.Children[i].exit(value)
+		}
+	}
+	clear(rt.Children)
 }

@@ -1,0 +1,7 @@
+ func await_or_exit(func () bool stateFunc, int timeout) int {
+  bool result = await(stateFunc, timeout);
+  if result == false {
+      exit(false); 
+  }
+  return 0;
+}

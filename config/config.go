@@ -21,7 +21,7 @@ type Config struct {
 	CompileParser          bool              `json:"compile_parser"`
 	StudentProgramWaitTime int               `json:"student_program_wait_time"`
 	Elevators              [3]ElevatorConfig `json:"elevators"`
-	SimElevatorServerPath  string
+	SimElevatorServerPath  string            `json:"sim_elevator_server_path"`
 }
 
 func elevatorFlags(config *Config) {

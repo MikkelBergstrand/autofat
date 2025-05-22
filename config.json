@@ -1,6 +1,7 @@
 {
   "compile_parser":  false,
   "student_program_wait_time": 1,
+  "sim_elevator_server_path": "./SimElevatorServer",
   "elevators":[
     {
         "network_namespace": "container0",

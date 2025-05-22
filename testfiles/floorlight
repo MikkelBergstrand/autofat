@@ -1,9 +1,28 @@
+//Initialize a single elevator.
 @ = 1;
+
+//Wait for elevator to settle after initialization.
+await_or_exit(() bool {
+  return door(@) == 0 & moving(@) == 0;
+}, 10000);
+
+//Go to lowest floor.
+make_order(0, CAB, 0);
+
+//Wait for elevator to settle.
+await_or_exit(() bool {
+  return floor(@) == 0 & door(@) == 0 & moving(@) == 0;
+}, 20000);
+
+sleep(1000);
+
+//Go to highest floor.
+make_order(0, CAB, 3);
 
 ~assert(() bool {
   return floorlight(@) == floor(@);
 }, 250);
 
-await(() bool {
+await_or_exit(() bool {
   return floor(@) == 3;
 }, 20000);

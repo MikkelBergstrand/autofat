@@ -99,6 +99,28 @@ func floorlight(compiler *storage.Compiler, params params) {
 	compiler.LoadInstruction(&runtime.InstrExitFunction{RetVal: result})
 }
 
+func door(compiler *storage.Compiler, params params) {
+	elevs := params["elevators"]
+	result := compiler.NewLiteral(variables.GetBaseTypeDef(variables.INT))
+
+	compiler.LoadInstruction(&runtime.InstrGetDoorStatus{
+		ArraySymbol: elevs,
+		Result:      result,
+	})
+	compiler.LoadInstruction(&runtime.InstrExitFunction{RetVal: result})
+}
+
+func moving(compiler *storage.Compiler, params params) {
+	elevs := params["elevators"]
+	result := compiler.NewLiteral(variables.GetBaseTypeDef(variables.INT))
+
+	compiler.LoadInstruction(&runtime.InstrGetMovementStatus{
+		ArraySymbol: elevs,
+		Result:      result,
+	})
+	compiler.LoadInstruction(&runtime.InstrExitFunction{RetVal: result})
+}
+
 func exit(compiler *storage.Compiler, params params) {
 	retval := params["value"]
 	compiler.LoadInstruction(&runtime.InstrExit{Value: retval})
@@ -165,6 +187,14 @@ func assert(compiler *storage.Compiler, params params) {
 	})
 }
 
+func make_order(compiler *storage.Compiler, params params) {
+	compiler.LoadInstruction(&runtime.InstrMakeOrder{
+		OrderType: params["ordertype"],
+		Floor:     params["floor"],
+		Elevator:  params["elevator"],
+	})
+	compiler.LoadInstruction(&runtime.InstrExitFunction{})
+}
 func generateGlobalVariables(compiler *storage.Compiler) {
 	defineGlobalVar(compiler, "CAB", variables.ORDERTYPE, elevio.BT_Cab)
 	defineGlobalVar(compiler, "HALLUP", variables.ORDERTYPE, elevio.BT_HallUp)
@@ -248,6 +278,28 @@ func generateGlobalFunctions(rt *runtime.Runtime, storage *storage.Compiler) {
 		ReturnType: &variables.TypeDefinition{BaseType: variables.INT},
 	}, statuslight)
 
+	defineFunction(rt, storage, "door", variables.TypeDefinition{
+		BaseType: variables.FUNC,
+		ArgumentList: []variables.Argument{
+			{
+				Definition: variables.TypeDefinition{BaseType: variables.INT, IsArray: true},
+				Identifier: "elevators",
+			},
+		},
+		ReturnType: &variables.TypeDefinition{BaseType: variables.INT},
+	}, door)
+
+	defineFunction(rt, storage, "moving", variables.TypeDefinition{
+		BaseType: variables.FUNC,
+		ArgumentList: []variables.Argument{
+			{
+				Definition: variables.TypeDefinition{BaseType: variables.INT, IsArray: true},
+				Identifier: "elevators",
+			},
+		},
+		ReturnType: &variables.TypeDefinition{BaseType: variables.INT},
+	}, door)
+
 	defineFunction(rt, storage, "exit", variables.TypeDefinition{
 		BaseType: variables.FUNC,
 		ArgumentList: []variables.Argument{
@@ -307,4 +359,25 @@ func generateGlobalFunctions(rt *runtime.Runtime, storage *storage.Compiler) {
 		},
 		ReturnType: &variables.TypeDefinition{BaseType: variables.NONE},
 	}, assert)
+
+	defineFunction(rt, storage, "make_order", variables.TypeDefinition{
+		BaseType: variables.FUNC,
+		ArgumentList: []variables.Argument{
+			{
+				Definition: variables.GetBaseTypeDef(variables.INT),
+				Identifier: "elevator",
+			},
+			{
+
+				Definition: variables.GetBaseTypeDef(variables.ORDERTYPE),
+				Identifier: "ordertype",
+			},
+			{
+
+				Definition: variables.GetBaseTypeDef(variables.INT),
+				Identifier: "floor",
+			},
+		},
+		ReturnType: &variables.TypeDefinition{BaseType: variables.NONE},
+	}, make_order)
 }

@@ -9,6 +9,13 @@ import (
 	"time"
 )
 
+func bool_to_int(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
 type InstrInitializeElevators struct {
 	Count        variables.Symbol
 	ElevArraySym variables.Symbol
@@ -73,13 +80,35 @@ func (instr *InstrGetStatusLight) Execute(rt *thread) {
 	collapseState(rt, instr.Result, instr.ArraySymbol,
 		func(state statemanager.ElevatorState) int {
 			b := state.OrderLight(ordertype, floor)
-			if b {
-				return 1
-			} else {
-				return 0
-			}
+			return bool_to_int(b)
 		})
 }
+
+type InstrGetDoorStatus struct {
+	ArraySymbol variables.Symbol
+	Result      variables.Symbol
+}
+
+func (instr *InstrGetDoorStatus) Execute(rt *thread) {
+	collapseState(rt, instr.Result, instr.ArraySymbol,
+		func(state statemanager.ElevatorState) int {
+			return bool_to_int(state.DoorOpen)
+		})
+}
+
+
+type InstrGetMovementStatus struct {
+	ArraySymbol variables.Symbol
+	Result      variables.Symbol
+}
+
+func (instr *InstrGetMovementStatus) Execute(rt *thread) {
+	collapseState(rt, instr.Result, instr.ArraySymbol,
+		func(state statemanager.ElevatorState) int {
+			return bool_to_int(state.Direction != elevio.MD_Stop)
+		})
+}
+
 
 // Takes in a function that outputs an integer as a product of a single elevator's state.
 // This integer is then compared across all inputted elevators.
@@ -102,4 +131,18 @@ func collapseState(rt *thread, result variables.Symbol, elevatorListSym variable
 		}
 	}
 	rt.set(result, val)
+}
+
+type InstrMakeOrder struct {
+	Elevator  variables.Symbol
+	Floor     variables.Symbol
+	OrderType variables.Symbol
+}
+
+func (instr *InstrMakeOrder) Execute(rt *thread) {
+	floor := rt.getInt(instr.Floor)
+	elev := rt.getInt(instr.Elevator)
+	order_type := rt.get(instr.OrderType).(elevio.ButtonType)
+
+	simulator.MakeOrder(elev, order_type, floor)
 }
