@@ -574,6 +574,8 @@ func DoActions(rule_id int, words []any, storage *storage.Compiler, r *runtime.R
 			Value: value,
 		})
 		return sym, nil
+	case 87:
+		return variables.TypeDefinition{BaseType: variables.THREAD}, nil
 	}
 	return words[0], nil
 }

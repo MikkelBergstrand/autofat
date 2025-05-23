@@ -166,6 +166,8 @@ func lexIdentifier(l *lexer) stateFn {
 		l.emit(tokens.ItemKeyBool)
 	} else if current == "string" {
 		l.emit(tokens.ItemKeyString)
+	} else if current == "thread" {
+		l.emit(tokens.ItemKeyThread)
 	} else if current == "false" {
 		l.emit(tokens.ItemFalse)
 	} else if current == "true" {

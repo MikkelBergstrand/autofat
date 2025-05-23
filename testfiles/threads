@@ -1,7 +1,7 @@
 
 int v = 2000;
 
-func thread() int {
+func myThread() int {
   func myFunc() int {
     sleep(v);
     return 0;
@@ -9,6 +9,6 @@ func thread() int {
   return myFunc();
 }
 
-~thread();
-sleep(5000);
+thread[] t = [ ~myThread() ];
+sync(t);
 

@@ -264,6 +264,8 @@ func CreateCFG() CFG {
 	cfg.addRule(tokens.NTBaseType, cfg_alternative{tokens.ItemKeyString})
 	//86 - String literal
 	cfg.addRule(tokens.NTExpr, cfg_alternative{tokens.ItemText})
+	//87 - Thread
+	cfg.addRule(tokens.NTBaseType, cfg_alternative{tokens.ItemKeyThread})
 	fmt.Println("Num rules: ", len(cfg._array))
 	cfg.compile()
 

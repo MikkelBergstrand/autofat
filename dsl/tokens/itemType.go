@@ -59,6 +59,7 @@ const (
 	ItemElevStatus
 	ItemFor
 	ItemKeyString
+	ItemKeyThread
 	TERMINALS_LENGTH
 )
 
