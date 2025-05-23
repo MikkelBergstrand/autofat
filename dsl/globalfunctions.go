@@ -196,6 +196,17 @@ func assert(compiler *storage.Compiler, params params) {
 	})
 }
 
+func my_append(compiler *storage.Compiler, params params) {
+	array := params["array"]
+	value := params["value"]
+
+	compiler.LoadInstruction(&runtime.InstrArrayAppend{
+		Array: array,
+		Value: value,
+	})
+	compiler.LoadInstruction(&runtime.InstrExitFunction{RetVal: array})
+}
+
 func make_order(compiler *storage.Compiler, params params) {
 	compiler.LoadInstruction(&runtime.InstrMakeOrder{
 		OrderType: params["ordertype"],
@@ -403,4 +414,24 @@ func generateGlobalFunctions(rt *runtime.Runtime, storage *storage.Compiler) {
 		},
 		ReturnType: &variables.TypeDefinition{BaseType: variables.NONE},
 	}, make_order)
+
+	defineFunction(rt, storage, "append", variables.TypeDefinition{
+		BaseType: variables.FUNC,
+		ArgumentList: []variables.Argument{
+			{
+				Identifier: "array",
+				Definition: variables.TypeDefinition{
+					BaseType: variables.ANY,
+					IsArray:  true,
+				},
+			},
+			{
+				Identifier: "value",
+				Definition: variables.TypeDefinition{
+					BaseType: variables.ANY,
+				},
+			},
+		},
+		ReturnType: &variables.TypeDefinition{BaseType: variables.ANY, IsArray: true},
+	}, my_append)
 }

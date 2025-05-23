@@ -306,6 +306,18 @@ type InstrArrayLookup struct {
 	Result variables.Symbol
 }
 
+type InstrArrayAppend struct {
+	Array variables.Symbol
+	Value variables.Symbol
+}
+
+func (instr *InstrArrayAppend) Execute(rt *thread) {
+	array := rt.get(instr.Array).([]any)
+	value := rt.get(instr.Value)
+
+	rt.set(instr.Array, append(array, value))
+}
+
 func (instr *InstrArrayLookup) Execute(rt *thread) {
 	index := rt.getInt(instr.Index)
 	array := rt.get(instr.Array).([]any)
