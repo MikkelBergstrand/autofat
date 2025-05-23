@@ -4,7 +4,6 @@ import (
 	"autofat/dsl/tokens"
 )
 
-
 const eof rune = '\x00' // necessary in 2025?
 
 type stateFn func(*lexer) stateFn
@@ -168,6 +167,10 @@ func lexIdentifier(l *lexer) stateFn {
 		l.emit(tokens.ItemKeyString)
 	} else if current == "thread" {
 		l.emit(tokens.ItemKeyThread)
+	} else if current == "foreach" {
+		l.emit(tokens.ItemForeach)
+	} else if current == "in" {
+		l.emit(tokens.ItemIn)
 	} else if current == "false" {
 		l.emit(tokens.ItemFalse)
 	} else if current == "true" {

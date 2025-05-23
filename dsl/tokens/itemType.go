@@ -60,6 +60,8 @@ const (
 	ItemFor
 	ItemKeyString
 	ItemKeyThread
+	ItemForeach
+	ItemIn
 	TERMINALS_LENGTH
 )
 
@@ -103,6 +105,7 @@ const (
 	NTForHeader
 	NTEndLoopScope
 	NTForPrelude
+	NTForeachHeader
 	NONTERMINALS_LENGTH
 )
 

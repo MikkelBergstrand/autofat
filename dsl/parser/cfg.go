@@ -266,6 +266,10 @@ func CreateCFG() CFG {
 	cfg.addRule(tokens.NTExpr, cfg_alternative{tokens.ItemText})
 	//87 - Thread
 	cfg.addRule(tokens.NTBaseType, cfg_alternative{tokens.ItemKeyThread})
+	//88 - forEach
+	cfg.addRule(tokens.NTStatement, cfg_alternative{tokens.NTForeachHeader, tokens.ItemScopeOpen, tokens.NTStatementList, tokens.NTEndLoopScope})
+	//89 - foreach header
+	cfg.addRule(tokens.NTForeachHeader, cfg_alternative{tokens.ItemForeach, tokens.NTVarType, tokens.ItemIdentifier, tokens.ItemIn, tokens.NTExpr})
 	fmt.Println("Num rules: ", len(cfg._array))
 	cfg.compile()
 

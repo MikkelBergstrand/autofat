@@ -576,6 +576,86 @@ func DoActions(rule_id int, words []any, storage *storage.Compiler, r *runtime.R
 		return sym, nil
 	case 87:
 		return variables.TypeDefinition{BaseType: variables.THREAD}, nil
+	case 88: //Statement -> ForeachHeader { StatementList EndForLoop
+		entry := words[0].(for_entry)
+		exit := words[3].(for_exit)
+
+		entry.jmp_if.Label = exit.exit_label
+		exit.jmp.Label = entry.start_label
+	case 89: //ForeachHeader -> foreach type identifier in identifier
+		array := words[4].(variables.Symbol)
+		_type := words[1].(variables.TypeDefinition)
+		loop_var := words[2].(string)
+
+		if !array.Type.IsArray {
+			return nil, fmt.Errorf("object %s not iterable", array.Type.String())
+		}
+
+		if array.Type.BaseType != _type.BaseType {
+			return nil, fmt.Errorf("type %s does not match array type %s", _type, array.Type.BaseType)
+		}
+
+		len_sym := storage.NewLiteral(variables.GetBaseTypeDef(variables.INT))
+		storage.LoadInstruction(&runtime.InstrArrayLen{
+			A:      array,
+			Result: len_sym,
+		})
+
+		loop_sym, err := storage.NewVariable(_type, loop_var)
+		if err != nil {
+			return nil, err
+		}
+
+		// Create loop index, load it with 0
+		loop_idx := storage.NewLiteral(variables.GetBaseTypeDef(variables.INT))
+		storage.LoadInstruction(&runtime.InstrLoadImmediate{
+			Dest:  loop_idx,
+			Value: 0,
+		})
+
+		// Compare the length of the array with the loop index,
+		start_label := storage.NewAutoLabel()
+		bool_cond := storage.NewLiteral(variables.GetBaseTypeDef(variables.BOOL))
+		storage.LoadLabeledInstruction(&runtime.InstrCompareInt{
+			A:        loop_idx,
+			B:        len_sym,
+			Result:   bool_cond,
+			Operator: runtime.LESS,
+		}, start_label)
+
+		//Create the conditional jump
+		jmp_if_instr := storage.LoadInstruction(&runtime.InstrJmpIf{
+			Condition: bool_cond,
+			Label:     "", // to be set at end-of-loop
+		})
+
+		storage.LoadInstruction(&runtime.InstrArrayLookup{
+			Array:  array,
+			Index:  loop_idx,
+			Result: *loop_sym,
+		})
+
+		//Increment counter by 1
+		one_sym := storage.NewLiteral(variables.GetBaseTypeDef(variables.INT))
+		storage.LoadInstruction(&runtime.InstrLoadImmediate{
+			Dest:  one_sym,
+			Value: 1,
+		})
+
+		storage.LoadInstruction(&runtime.InstrArithmetic{
+			A:        loop_idx,
+			B:        one_sym,
+			Result:   loop_idx,
+			Operator: runtime.ADD,
+		})
+
+		storage.LoadInstruction(&runtime.InstrBeginScope{})
+		storage.NewScope()
+
+		return for_entry{
+			start_label: start_label,
+			jmp_if:      jmp_if_instr.Instruction.(*runtime.InstrJmpIf),
+		}, nil
 	}
 	return words[0], nil
 }

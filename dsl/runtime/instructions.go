@@ -300,6 +300,29 @@ func (instr *InstrLoadArray) Execute(rt *thread) {
 	rt.set(instr.DestSymbol, arr)
 }
 
+type InstrArrayLookup struct {
+	Array  variables.Symbol
+	Index  variables.Symbol
+	Result variables.Symbol
+}
+
+func (instr *InstrArrayLookup) Execute(rt *thread) {
+	index := rt.getInt(instr.Index)
+	array := rt.get(instr.Array).([]any)
+
+	rt.set(instr.Result, array[index])
+}
+
+type InstrArrayLen struct {
+	A      variables.Symbol
+	Result variables.Symbol
+}
+
+func (instr *InstrArrayLen) Execute(rt *thread) {
+	arr := rt.get(instr.A).([]any)
+	rt.set(instr.Result, len(arr))
+}
+
 type InstrExit struct {
 	Value variables.Symbol
 }

@@ -45,6 +45,15 @@ func echo(storage *storage.Compiler, params params) {
 	storage.LoadInstruction(&runtime.InstrExitFunction{})
 }
 
+func array_len(storage *storage.Compiler, params params) {
+	ret_val := storage.NewLiteral(variables.GetBaseTypeDef(variables.INT))
+	storage.LoadInstruction(&runtime.InstrArrayLen{
+		A:      params["array"],
+		Result: ret_val,
+	})
+	storage.LoadInstruction(&runtime.InstrExitFunction{RetVal: ret_val})
+}
+
 func await(storage *storage.Compiler, params params) {
 	//Create boolean value to hold return value of the await.
 	//Return value of await can be 3 values: OK (statefunc == true) ,NOTOK (statefunc == false) or TIMEOUT
@@ -325,6 +334,20 @@ func generateGlobalFunctions(rt *runtime.Runtime, storage *storage.Compiler) {
 		},
 		ReturnType: &variables.TypeDefinition{BaseType: variables.NONE},
 	}, sleep)
+
+	defineFunction(rt, storage, "len", variables.TypeDefinition{
+		BaseType: variables.FUNC,
+		ArgumentList: []variables.Argument{
+			{
+				Definition: variables.TypeDefinition{
+					BaseType: variables.ANY,
+					IsArray:  true,
+				},
+				Identifier: "array",
+			},
+		},
+		ReturnType: &variables.TypeDefinition{BaseType: variables.INT},
+	}, array_len)
 
 	defineFunction(rt, storage, "sync", variables.TypeDefinition{
 		BaseType: variables.FUNC,
