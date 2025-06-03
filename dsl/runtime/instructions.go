@@ -4,7 +4,6 @@ import (
 	"autofat/dsl/color"
 	"autofat/dsl/variables"
 	"autofat/statemanager"
-	"fmt"
 	"slices"
 	"time"
 )
@@ -203,9 +202,6 @@ func (instr *InstrCallFunction) Execute(runtime *thread) {
 		arg_values = append(arg_values, runtime.get(instr.Arguments[i]))
 	}
 	//Fetch func_ptr
-	fmt.Printf("runtime %p ", runtime)
-	fmt.Println("func_sym", instr.SymbolicLabel)
-	fmt.Println(runtime.CallStack.Peek().AddressStack)
 	func_ptr := runtime.get(instr.SymbolicLabel).(FunctionVar)
 	conv_addr_stack := func_ptr.AddressStack.Copy()
 
@@ -230,21 +226,20 @@ func (instr *InstrCallFunction) Execute(runtime *thread) {
 	} else {
 		//Get thread object
 		done := make(chan bool)
+		kill := make(chan bool)
 		runtime.set(instr.RetVal, variables.Thread{
 			Done: done,
+			Kill: kill,
 		})
 
 		// Create a new runtime
-		fmt.Println(conv_addr_stack)
 		new_runtime := runtime.fork(runtime.Runtime.Labels[func_ptr.Label], conv_addr_stack)
 
-		fmt.Println(new_runtime.CallStack.PeekRef().AddressStack)
 		// Set arguments in new runtime
 		for i := range arg_values {
 			new_runtime.set(variables.Symbol{Offset: i, Scope: 0, Type: instr.Arguments[i].Type}, arg_values[i])
 		}
-		go new_runtime.Run(done)
-		fmt.Println("Thread forked!")
+		go new_runtime.Run(kill, done)
 	}
 
 }
@@ -273,7 +268,6 @@ func (instr *InstrExitFunction) Execute(runtime *thread) {
 	//If callstack is empty, this thread is done.
 	if len(runtime.CallStack) == 0 {
 		runtime.Programcounter = RT_EXIT
-		fmt.Println("Exiting thread.")
 	} else {
 		top_ar := runtime.CallStack.PeekRef()
 		//fmt.Println("Ret val on exit", top_ar.Retval, ret_val)
@@ -316,6 +310,32 @@ func (instr *InstrArrayAppend) Execute(rt *thread) {
 	value := rt.get(instr.Value)
 
 	rt.set(instr.Array, append(array, value))
+}
+
+type InstrArrayDiff struct {
+	ArrayA variables.Symbol
+	ArrayB variables.Symbol
+	Result variables.Symbol
+}
+
+func (instr *InstrArrayDiff) Execute(rt *thread) {
+	arrayA := rt.get(instr.ArrayA).([]any)
+	arrayB := rt.get(instr.ArrayB).([]any)
+
+	var result []any
+	for i := range arrayA {
+		overlap := false
+		for j := range arrayB {
+			if arrayA[i] == arrayB[j] {
+				overlap = true
+				break
+			}
+		}
+		if !overlap {
+			result = append(result, arrayA[i])
+		}
+	}
+	rt.set(instr.Result, result)
 }
 
 func (instr *InstrArrayLookup) Execute(rt *thread) {
@@ -378,4 +398,13 @@ func (instr *InstrSync) Execute(rt *thread) {
 		}
 	}
 
+}
+
+type InstructionClose struct {
+	Thread variables.Symbol
+}
+
+func (instr *InstructionClose) Execute(rt *thread) {
+	thread := rt.get(instr.Thread).(variables.Thread)
+	thread.Kill <- true
 }

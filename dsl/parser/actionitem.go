@@ -144,6 +144,8 @@ func DoActions(rule_id int, words []any, storage *storage.Compiler, r *runtime.R
 		return integerArithmetic(words, storage, runtime.MULT), nil
 	case 7:
 		return integerArithmetic(words, storage, runtime.DIV), nil
+	case 9:
+		return words[1].(variables.Symbol), nil
 	case 10: //New integer literal
 		addr := storage.NewLiteral(variables.TypeDefinition{BaseType: variables.INT})
 		storage.LoadInstruction(&runtime.InstrLoadImmediate{
@@ -458,6 +460,9 @@ func DoActions(rule_id int, words []any, storage *storage.Compiler, r *runtime.R
 				if !list[i].Type.Equals(list[0].Type) {
 					return nil, fmt.Errorf("elements in an array must be of the same type")
 				}
+				if list[i].Type.IsArray {
+					return nil, fmt.Errorf("arrays cannot be nested")
+				}
 			}
 			array_type = list[0].Type.BaseType
 		}
@@ -656,6 +661,11 @@ func DoActions(rule_id int, words []any, storage *storage.Compiler, r *runtime.R
 			start_label: start_label,
 			jmp_if:      jmp_if_instr.Instruction.(*runtime.InstrJmpIf),
 		}, nil
+	case 91:
+		return variables.GetBaseTypeDef(variables.NONE), nil
 	}
-	return words[0], nil
+	if len(words) > 0 {
+		return words[0], nil
+	}
+	return nil, nil
 }

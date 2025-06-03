@@ -75,16 +75,17 @@ func Run(id int) {
 	elevator.io = &elevio.ElevIO{}
 	fmt.Printf("Launching simulator process, port=%d, externalPort=%d\n", elevator.Config.UserAddrPort.Port(), elevator.Config.EvaulationAddrPort.Port())
 
-	args := []string{
-		"--port", strconv.Itoa(int(elevator.Config.UserAddrPort.Port())),
-		"--externalPort", strconv.Itoa(int(elevator.Config.EvaulationAddrPort.Port())),
-		"--startFloor", strconv.Itoa(int(elevator.Params.InitialFloor)),
-	}
+	args := fmt.Sprintf("--port %s --externalPort %s --startFloor %s",
+		strconv.Itoa(int(elevator.Config.UserAddrPort.Port())),
+		strconv.Itoa(int(elevator.Config.EvaulationAddrPort.Port())),
+		strconv.Itoa(int(elevator.Params.InitialFloor)),
+	)
+
 	if elevator.Params.BetweenFloors {
-		args = append(args, "--randomStart")
+		args += "--randomStart"
 	}
 
-	cmd := network.CommandInNamespace(id, _executable, args)
+	cmd := network.CommandInNamespace(id, _executable+" "+args)
 
 	tmux.LaunchInPane(cmd, tmux.WINDOW_ELEVATORS, id)
 

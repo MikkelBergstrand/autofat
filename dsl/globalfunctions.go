@@ -67,16 +67,16 @@ func await(storage *storage.Compiler, params params) {
 	storage.LoadInstruction(&runtime.InstrLoadImmediate{Dest: timeout_sym, Value: false})
 	storage.LoadInstruction(&runtime.InstrLoadImmediate{Dest: chan_sym, Value: nil})
 	label := storage.NewAutoLabel()
-	storage.LoadLabeledInstruction(&runtime.InstrAwaitStateListen{
+	storage.LoadInstruction(&runtime.InstrAwaitStateListen{
 		AwaitVal:       chan_sym,
 		TimeoutSeconds: timeout,
-	}, label)
-	storage.LoadInstruction(&runtime.InstrAwait{
+	})
+	storage.LoadLabeledInstruction(&runtime.InstrAwait{
 		AwaitVal:           chan_sym,
 		StateFunction:      state_func,
 		ConditionFuncValue: cond_func_ret_val,
 		Timeout:            timeout_sym,
-	})
+	}, label)
 	storage.LoadInstruction(&runtime.InstrEndAwait{
 		Label:              label,
 		ConditionFuncValue: cond_func_ret_val,
@@ -207,6 +207,16 @@ func my_append(compiler *storage.Compiler, params params) {
 	compiler.LoadInstruction(&runtime.InstrExitFunction{RetVal: array})
 }
 
+func array_diff(compiler *storage.Compiler, params params) {
+	result := compiler.NewLiteral(variables.TypeDefinition{IsArray: true, BaseType: variables.ANY})
+	compiler.LoadInstruction(&runtime.InstrArrayDiff{
+		ArrayA: params["a"],
+		ArrayB: params["b"],
+		Result: result,
+	})
+	compiler.LoadInstruction(&runtime.InstrExitFunction{RetVal: result})
+}
+
 func make_order(compiler *storage.Compiler, params params) {
 	compiler.LoadInstruction(&runtime.InstrMakeOrder{
 		OrderType: params["ordertype"],
@@ -215,11 +225,43 @@ func make_order(compiler *storage.Compiler, params params) {
 	})
 	compiler.LoadInstruction(&runtime.InstrExitFunction{})
 }
+
+func kill_elevator(compiler *storage.Compiler, params params) {
+	compiler.LoadInstruction(&runtime.InstrKillApplication{
+		Elevator: params["elevator"],
+	})
+	compiler.LoadInstruction(&runtime.InstrExitFunction{})
+}
+
+func restart_elevator(compiler *storage.Compiler, params params) {
+	compiler.LoadInstruction(&runtime.InstrRebootApplication{
+		Elevator: params["elevator"],
+	})
+	compiler.LoadInstruction(&runtime.InstrExitFunction{})
+}
+
+func set_packet_loss(compiler *storage.Compiler, params params) {
+	compiler.LoadInstruction(&runtime.InstrSetPacketLoss{
+		Elevators:  params["elevators"],
+		Percentage: params["percentage"],
+	})
+	compiler.LoadInstruction(&runtime.InstrExitFunction{})
+}
+
+func thread_close(compiler *storage.Compiler, params params) {
+	compiler.LoadInstruction(&runtime.InstructionClose{
+		Thread: params["thread_obj"],
+	})
+
+	compiler.LoadInstruction(&runtime.InstrExitFunction{})
+}
+
 func generateGlobalVariables(compiler *storage.Compiler) {
 	defineGlobalVar(compiler, "CAB", variables.ORDERTYPE, elevio.BT_Cab)
 	defineGlobalVar(compiler, "HALLUP", variables.ORDERTYPE, elevio.BT_HallUp)
 	defineGlobalVar(compiler, "HALLDOWN", variables.ORDERTYPE, elevio.BT_HallDown)
 }
+
 func generateGlobalFunctions(rt *runtime.Runtime, storage *storage.Compiler) {
 	// Create function echo
 	defineFunction(rt, storage, "echo", variables.TypeDefinition{
@@ -318,7 +360,7 @@ func generateGlobalFunctions(rt *runtime.Runtime, storage *storage.Compiler) {
 			},
 		},
 		ReturnType: &variables.TypeDefinition{BaseType: variables.INT},
-	}, door)
+	}, moving)
 
 	defineFunction(rt, storage, "exit", variables.TypeDefinition{
 		BaseType: variables.FUNC,
@@ -416,6 +458,7 @@ func generateGlobalFunctions(rt *runtime.Runtime, storage *storage.Compiler) {
 	}, make_order)
 
 	defineFunction(rt, storage, "append", variables.TypeDefinition{
+
 		BaseType: variables.FUNC,
 		ArgumentList: []variables.Argument{
 			{
@@ -434,4 +477,76 @@ func generateGlobalFunctions(rt *runtime.Runtime, storage *storage.Compiler) {
 		},
 		ReturnType: &variables.TypeDefinition{BaseType: variables.ANY, IsArray: true},
 	}, my_append)
+
+	defineFunction(rt, storage, "kill_elevator", variables.TypeDefinition{
+		BaseType: variables.FUNC,
+		ArgumentList: variables.ArgumentList{
+			{
+				Identifier: "elevator",
+				Definition: variables.GetBaseTypeDef(variables.INT),
+			},
+		},
+		ReturnType: &variables.TypeDefinition{BaseType: variables.NONE},
+	}, kill_elevator)
+
+	defineFunction(rt, storage, "restart_elevator", variables.TypeDefinition{
+		BaseType: variables.FUNC,
+		ArgumentList: variables.ArgumentList{
+			{
+				Identifier: "elevator",
+				Definition: variables.GetBaseTypeDef(variables.INT),
+			},
+		},
+		ReturnType: &variables.TypeDefinition{BaseType: variables.NONE},
+	}, restart_elevator)
+
+	defineFunction(rt, storage, "set_packet_loss", variables.TypeDefinition{
+		BaseType: variables.FUNC,
+		ArgumentList: variables.ArgumentList{
+			{
+				Identifier: "elevators",
+				Definition: variables.TypeDefinition{
+					BaseType: variables.INT,
+					IsArray:  true,
+				},
+			},
+			{
+				Identifier: "percentage",
+				Definition: variables.GetBaseTypeDef(variables.INT),
+			},
+		},
+		ReturnType: &variables.TypeDefinition{BaseType: variables.NONE},
+	}, set_packet_loss)
+
+	defineFunction(rt, storage, "array_diff", variables.TypeDefinition{
+		BaseType: variables.FUNC,
+		ArgumentList: variables.ArgumentList{
+			{
+				Identifier: "a",
+				Definition: variables.TypeDefinition{
+					BaseType: variables.ANY,
+					IsArray:  true,
+				},
+			},
+			{
+				Identifier: "b",
+				Definition: variables.TypeDefinition{
+					BaseType: variables.ANY,
+					IsArray:  true,
+				},
+			},
+		}, ReturnType: &variables.TypeDefinition{BaseType: variables.ANY, IsArray: true},
+	}, array_diff)
+
+	defineFunction(rt, storage, "close", variables.TypeDefinition{
+		BaseType: variables.FUNC,
+		ArgumentList: variables.ArgumentList{
+			{
+				Identifier: "thread_obj",
+				Definition: variables.TypeDefinition{
+					BaseType: variables.THREAD,
+				},
+			},
+		}, ReturnType: &variables.TypeDefinition{BaseType: variables.NONE},
+	}, thread_close)
 }

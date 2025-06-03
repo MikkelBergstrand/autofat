@@ -1,0 +1,19 @@
+@ = 3;
+init_elevators([0, 0, 0]);
+
+func foo() {
+  int i = 0;
+}
+
+// Make a hall order on each elevator panel and check if the system processes said order.
+
+make_hall_order(@, 0, 3);
+process_order(@, 3);
+
+
+make_hall_order(@, 1, 2);
+process_order(@, 2);
+
+
+make_hall_order(@, 2, 1);
+process_order(@, 1);

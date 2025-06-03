@@ -5,3 +5,101 @@
   }
   return 0;
 }
+
+// Initializes one elevator to a specific floor position
+func init_elevator(int id, int desired_floor) int {
+  //Wait for elevator to settle after initialization.
+  await_or_exit(() bool {
+    return door([id]) == 0 & moving([id]) == 0 & true;
+  }, 10000);
+
+  //Go to desired floor.
+  make_order(id, CAB, desired_floor);
+
+  //Wait for elevator to settle.
+  // Door should open at floor
+  await_or_exit(() bool {
+    return floor([id]) == desired_floor & door([id]) == 1 & moving([id]) == 0;
+  }, 20000);
+
+  // Door should close at floor.
+  await_or_exit(() bool {
+    return floor([id]) == desired_floor & door([id]) == 0 & moving([id]) == 0;
+  }, 5000);
+  return 0;
+}
+
+// Put elevators at specific floors after initialization.
+func init_elevators(int[] floors) int {
+  thread[] threads = [];
+  int elev_id = 0;
+  foreach int floor in floors {
+    threads = append(threads, ~init_elevator(elev_id, floor));
+    elev_id = elev_id + 1;
+  }
+  sync(threads);
+  return 0;
+}
+
+// Waits for an elevator to arrive at a floor and 
+func process_order(int[] elevators, int floorTarget) int {
+  int assigned_elevator = 0;
+
+  // Wait for any elevator among the input elevators to arrive at floor.
+  await_or_exit(() bool {
+    foreach int elevator in elevators {
+      if (floor([elevator]) == floorTarget) & (moving([elevator]) == 0) {
+        return true;
+        assigned_elevator = elevator;
+      } 
+      return false;
+    }
+  }, 20000);
+
+  // Wait for the door to open at floor.
+  await_or_exit(() bool {
+    return (floor([assigned_elevator]) == floorTarget) & (door([assigned_elevator]) == 1);
+  }, 5000);
+
+  // Wait for the door to close at floor.
+  await_or_exit(() bool {
+    return door([assigned_elevator]) == 0 & floor([assigned_elevator]) == floorTarget;
+  }, 5000);
+  return 0;
+}
+
+
+// Make a hall order
+// The order is counted as confirmed if an elevator starts moving.
+// Returns the ID of the (first) elevator that starts moving.
+// Elevators must be stationary before making a hall order
+// in order to be able to evaluate the system properly.
+func make_hall_order(int[] allElevators, int elevator, int floorTarget) {
+  echo(floorTarget);
+  await_or_exit(() bool {
+    return moving(allElevators) == 0 & door(allElevators) == 0;
+  }, 20000);
+
+  int repeatCount = 0;
+  int movingElevator = 1000; // Does not exist
+  for repeatCount < 3 & movingElevator == 1000 {
+    make_order(elevator, HALLDOWN, floorTarget);
+
+    await(() bool {
+      foreach int elevator in allElevators { 
+        if (moving([elevator]) == 1) {
+          movingElevator = elevator;
+          return true;
+        }
+      }
+      return false;
+    }, 10000);
+    repeatCount = repeatCount + 1;
+  }
+
+  if movingElevator == 1000 {
+    // No movement from the system, so must give up.
+    exit(false);
+  }
+  return movingElevator;
+}

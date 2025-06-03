@@ -13,6 +13,7 @@ type ElevatorConfig struct {
 	UserAddrPort       netip.AddrPort `json:"user_addr"`
 	EvaulationAddrPort netip.AddrPort `json:"evaluation_addr"`
 	NetworkNamespace   string         `json:"network_namespace"`
+	NetworkInterface   string         `json:"iface"`
 }
 
 type Config struct {

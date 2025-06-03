@@ -3,7 +3,6 @@ package runtime
 import (
 	"autofat/dsl/variables"
 	"autofat/statemanager"
-	"fmt"
 	"time"
 )
 
@@ -17,10 +16,9 @@ func (instr *InstrAwaitStateListen) Execute(rt *thread) {
 	// if none exist at the symbol location.
 	if rt.get(instr.AwaitVal) == nil {
 		timeout := time.NewTimer(time.Duration(rt.getInt(instr.TimeoutSeconds) * int(time.Millisecond)))
-		stateChan := statemanager.RegisterStateChannel()
+		rt.newListener()
 		rt.set(instr.AwaitVal, variables.AwaitVal{
-			Timeout:   timeout,
-			StateChan: stateChan,
+			Timeout: timeout,
 		})
 	}
 }
@@ -35,26 +33,23 @@ type InstrAwait struct {
 func (instr *InstrAwait) Execute(runtime *thread) {
 	// Wait for new state
 	await_obj := runtime.get(instr.AwaitVal).(variables.AwaitVal)
-	stateChan := await_obj.StateChan
 	timeout := await_obj.Timeout
 
 	var states statemanager.States = nil
 	more := true
 	select {
-	case states, more = <-stateChan:
+	case states, more = <-runtime.Listener:
 		if !more {
-			fmt.Println("Closing await")
 			return
 		}
 	case <-timeout.C:
-		fmt.Println("Timeout!")
 		runtime.set(instr.Timeout, true)
 		return
 	}
 
 	call := InstrCallFunction{
 		SymbolicLabel: instr.StateFunction,
-		State:         &states,
+		State:         states.Copy(),
 		RetVal:        instr.ConditionFuncValue,
 	}
 	call.Execute(runtime)
@@ -69,15 +64,12 @@ type InstrEndAwait struct {
 
 func (instr *InstrEndAwait) Execute(runtime *thread) {
 	await_val := runtime.getBool(instr.ConditionFuncValue)
-
-	fmt.Println(await_val)
 	if !runtime.getBool(instr.Timeout) && !await_val {
 		jmp := InstrJmp{
 			Label: instr.Label,
 		}
 		jmp.Execute(runtime)
 	} else {
-		await := runtime.get(instr.AwaitVal).(variables.AwaitVal)
-		statemanager.UnregisterStateChannel(await.StateChan)
+		runtime.removeListener()
 	}
 }

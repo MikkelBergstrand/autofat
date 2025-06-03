@@ -38,12 +38,22 @@ func First(cfg CFG, grammar tokens.Grammar) FirstSet {
 		firstSet[terminal] = *structure.NewSet[tokens.Symbol]()
 	}
 
+	for _, rule := range cfg.Productions() {
+		if len(rule.B) == 0 {
+			firstSet[rule.A].Add(tokens.ItemEpsilon)
+		}
+	}
+
 	changing := true
 	for changing {
 		changing = false
 		for _, rule := range cfg.Productions() {
 			A := rule.A
 			Bs := rule.B
+
+			if len(Bs) == 0 {
+				continue
+			}
 
 			rhs := firstSet[Bs[0]].Copy().Remove(tokens.ItemEpsilon)
 			trailing := true

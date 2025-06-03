@@ -3,7 +3,6 @@ package runtime
 import (
 	"autofat/dsl/variables"
 	"autofat/statemanager"
-	"fmt"
 	"time"
 )
 
@@ -17,24 +16,22 @@ type InstrAssert struct {
 func (instr *InstrAssert) Execute(runtime *thread) {
 	// Wait for new state
 	assert_obj := runtime.get(instr.AssertVal).(variables.AssertVal)
-	stateChan := assert_obj.StateChan
 
 	var states statemanager.States = nil
 	more := true
 
 	if assert_obj.DeadzoneTimer != nil {
 		select {
-		case states, more = <-stateChan:
+		case states, more = <-runtime.Listener:
 			if !more {
 				return
 			}
 		case <-assert_obj.DeadzoneTimer.C:
-			fmt.Println("Timeout!")
 			runtime.set(instr.DeadzoneViolated, true)
 			return
 		}
 	} else {
-		states, more = <-stateChan
+		states, more = <-runtime.Listener
 		if !more {
 			return
 		}
@@ -42,7 +39,7 @@ func (instr *InstrAssert) Execute(runtime *thread) {
 
 	call := InstrCallFunction{
 		SymbolicLabel: instr.StateFunction,
-		State:         &states,
+		State:         states.Copy(),
 		RetVal:        instr.ConditionFuncValue,
 	}
 	call.Execute(runtime)
@@ -58,12 +55,10 @@ type InstrEndAssert struct {
 
 func (instr *InstrEndAssert) Execute(runtime *thread) {
 	assert_val := runtime.getBool(instr.ConditionFuncValue)
-	fmt.Println(assert_val)
 	assert := runtime.get(instr.AssertVal).(variables.AssertVal)
 	if runtime.getBool(instr.Deadzoneviolated) {
 		// Assert has been false for too long: the program must exit with an error.
-		fmt.Println("Violation of assert!")
-		statemanager.UnregisterStateChannel(assert.StateChan)
+		runtime.removeListener()
 		assert.DeadzoneTimer.Stop()
 		runtime.exit(false)
 	} else {
@@ -76,21 +71,15 @@ func (instr *InstrEndAssert) Execute(runtime *thread) {
 		deadzone_ms := runtime.getInt(instr.DeadzoneMilliseconds)
 		if !assert_val && assert.DeadzoneTimer == nil {
 			if deadzone_ms > 0 {
-				fmt.Println("Starting assert deadzone timer")
 				runtime.set(instr.AssertVal, variables.AssertVal{
-					StateChan:     assert.StateChan,
 					DeadzoneTimer: time.NewTimer(time.Duration(deadzone_ms) * time.Millisecond),
 				})
 			} else {
-				fmt.Println("Violation of instant assert!")
-				assert.DeadzoneTimer.Stop()
-				statemanager.UnregisterStateChannel(assert.StateChan)
+				runtime.removeListener()
 				runtime.exit(false)
 			}
 		} else if assert_val && assert.DeadzoneTimer != nil {
-			fmt.Println("Ending assert deadzone timer")
 			new_assert_val := variables.AssertVal{
-				StateChan:     assert.StateChan,
 				DeadzoneTimer: nil,
 			}
 			runtime.set(instr.AssertVal, new_assert_val)
@@ -106,11 +95,10 @@ type InstrAssertStateListen struct {
 func (instr *InstrAssertStateListen) Execute(rt *thread) {
 	// Initialize a new state capturing channel
 	// if none exist at the symbol location.
+	rt.newListener()
 	if rt.get(instr.AssertVal) == nil {
-		stateChan := statemanager.RegisterStateChannel()
 		rt.set(instr.AssertVal, variables.AssertVal{
 			DeadzoneTimer: nil,
-			StateChan:     stateChan,
 		})
 	}
 }

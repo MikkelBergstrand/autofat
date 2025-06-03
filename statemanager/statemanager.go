@@ -5,11 +5,20 @@ import (
 	"autofat/simulator"
 	"autofat/studentprogram"
 	"fmt"
+	"log"
+	"time"
 )
 
 const BUFFER_SIZE = 10
 
 type States []ElevatorState
+
+func (state States) Copy() *States {
+	_copy := make(States, len(state))
+	copy(_copy, state)
+	return &_copy
+}
+
 type StateChannel chan States
 
 var _elevatorStates States
@@ -29,26 +38,25 @@ func pollEvents(triggerType trigger, triggerParams interface{}) {
 	fmt.Println("Polling events of type", triggerType, "params: ", triggerParams)
 
 	for _, stateChan := range _stateChannels {
-		fmt.Println("Sending state...")
 		stateChan <- _elevatorStates
-		fmt.Println("Done")
 	}
 
 }
 
 func RegisterStateChannel() StateChannel {
 	ret := make(StateChannel, BUFFER_SIZE)
-	fmt.Println("Adding listener")
 	_chan_addListener <- ret
-	// send the state once to capture state as it was when registering.
-	_pollAgain <- triggerMessage{
-		Type: TRIGGER_NEW_LISTENER,
-	}
+	go func() {
+		time.Sleep(250 * time.Millisecond)
+		//send the state once to capture state as it was when registering.
+		_pollAgain <- triggerMessage{
+			Type: TRIGGER_NEW_LISTENER,
+		}
+	}()
 	return ret
 }
 
 func UnregisterStateChannel(ch StateChannel) {
-	fmt.Println("Removing new listener")
 	_chan_removeListener <- ch
 }
 
@@ -62,7 +70,6 @@ func Init() {
 			case trigger, more := <-_pollAgain:
 				if !more {
 					for i := range _stateChannels {
-						fmt.Println("Closing state channel", (i + 1), "of", len(_stateChannels))
 						close(_stateChannels[i])
 					}
 					return
@@ -71,16 +78,20 @@ func Init() {
 			case ch := <-_chan_addListener:
 				_stateChannels = append(_stateChannels, ch)
 			case ch := <-_chan_removeListener:
-				close(ch)
 				idx := -1
-				for i, ch := range _stateChannels {
+				for i := range _stateChannels {
 					if _stateChannels[i] == ch {
 						idx = i
+						break
 					}
 				}
 				if idx >= 0 {
-					_stateChannels = append(_stateChannels[:idx], _stateChannels[idx+1:]...)
+					_stateChannels[idx] = _stateChannels[len(_stateChannels)-1]
+					_stateChannels = _stateChannels[:len(_stateChannels)-1]
+				} else {
+					log.Fatalf("Attempting to remove non-existing channel!")
 				}
+				close(ch)
 			}
 		}
 	}()
@@ -108,7 +119,6 @@ func listenToElevators(elevatorId int, simulatedElevator *simulator.Simulator, s
 		select {
 		case <-_chan_Kill:
 			{
-				fmt.Println("Killed elevator listener ", elevatorId)
 				_chan_Terminated <- true
 				return
 			}
@@ -128,7 +138,7 @@ func listenToElevators(elevatorId int, simulatedElevator *simulator.Simulator, s
 			_elevatorStates[elevatorId].DoorOpen = door_state
 			_pollAgain <- triggerMessage{
 				Type:   TRIGGER_DOOR,
-				Params: door_state,
+				Params: fmt.Sprintf("Elevator=%d Door=%b", elevatorId, door_state),
 			}
 		case order_light := <-simulatedElevator.Chan_OrderLights:
 			switch order_light.Button {
@@ -174,14 +184,14 @@ func listenToElevators(elevatorId int, simulatedElevator *simulator.Simulator, s
 }
 
 func Kill() {
-	close(_pollAgain)
 
-	for i := range _elevatorStates {
-		fmt.Println("Closing elev poll channel", i)
+	for range _elevatorStates {
 		_chan_Kill <- true
 	}
 
 	for range _elevatorStates {
 		<-_chan_Terminated
 	}
+
+	close(_pollAgain)
 }

@@ -3,6 +3,7 @@ package runtime
 import (
 	"autofat/dsl/variables"
 	"autofat/elevio"
+	"autofat/network"
 	"autofat/simulator"
 	"autofat/statemanager"
 	"autofat/studentprogram"
@@ -96,7 +97,6 @@ func (instr *InstrGetDoorStatus) Execute(rt *thread) {
 		})
 }
 
-
 type InstrGetMovementStatus struct {
 	ArraySymbol variables.Symbol
 	Result      variables.Symbol
@@ -108,7 +108,6 @@ func (instr *InstrGetMovementStatus) Execute(rt *thread) {
 			return bool_to_int(state.Direction != elevio.MD_Stop)
 		})
 }
-
 
 // Takes in a function that outputs an integer as a product of a single elevator's state.
 // This integer is then compared across all inputted elevators.
@@ -145,4 +144,37 @@ func (instr *InstrMakeOrder) Execute(rt *thread) {
 	order_type := rt.get(instr.OrderType).(elevio.ButtonType)
 
 	simulator.MakeOrder(elev, order_type, floor)
+}
+
+type InstrKillApplication struct {
+	Elevator variables.Symbol
+}
+
+func (instr *InstrKillApplication) Execute(rt *thread) {
+	elev := rt.getInt(instr.Elevator)
+	studentprogram.KillProgram(elev)
+}
+
+type InstrRebootApplication struct {
+	Elevator variables.Symbol
+}
+
+func (instr *InstrRebootApplication) Execute(rt *thread) {
+	elev := rt.getInt(instr.Elevator)
+	studentprogram.StartProgram(elev)
+}
+
+type InstrSetPacketLoss struct {
+	Elevators  variables.Symbol
+	Percentage variables.Symbol
+}
+
+func (instr *InstrSetPacketLoss) Execute(rt *thread) {
+	elevs := rt.get(instr.Elevators).([]any)
+	//convert []any to []int
+	var elevs_int []int
+	for _, i := range elevs {
+		elevs_int = append(elevs_int, i.(int))
+	}
+	network.SetGlobalPacketLoss(elevs_int, rt.getInt(instr.Percentage))
 }

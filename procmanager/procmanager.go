@@ -19,7 +19,6 @@ var _map map[int]bool
 
 // Add a process that is to be managed
 func AddProcess(i int) {
-	fmt.Println("Process ", i, " is now managed")
 	_map[i] = true
 	writeToFile()
 }
@@ -32,14 +31,12 @@ func KillProcess(i int) {
 
 // Make process no longer managed (because it died on its own, hopefully.)
 func DeleteProcess(i int) {
-	fmt.Println("Process ", i, " is no longer managed")
 	delete(_map, i)
 	writeToFile()
 }
 
 // Helper function: cleanup by killing all children of the process as well.
 func cleanupProcess(pid int) {
-	fmt.Println("Cleaning up process ", pid)
 	// Little bit of evil Linux hacking
 	// This targets all processes with a Parent Process ID (PPID) = pid
 	// This is not a catch-all thing, but for common student cases

@@ -6,17 +6,20 @@
     {
         "network_namespace": "container0",
         "user_addr": "10.0.0.1:12345",
-        "evaluation_addr": "10.0.0.1:12346"
+        "evaluation_addr": "10.0.0.1:12346",
+        "iface": "veth-0"
     },
     {
         "network_namespace": "container1",
         "user_addr": "10.0.0.2:12345",
-        "evaluation_addr": "10.0.0.2:12346"
+        "evaluation_addr": "10.0.0.2:12346",
+        "iface": "veth-1"
     },
     {
         "network_namespace": "container2",
         "user_addr": "10.0.0.3:12345",
-        "evaluation_addr": "10.0.0.3:12346"
+        "evaluation_addr": "10.0.0.3:12346",
+        "iface": "veth-2"
     }
   ]
 }

@@ -1,0 +1,38 @@
+@ = 3;
+init_elevators([0, 0, 0]);
+
+
+func test_order(int elevator, int desiredFloor) int {
+  make_order(elevator, CAB, desiredFloor);
+  int[] otherElevators = array_diff(@, [elevator]);
+
+  thread check_other_elevs = ~assert(() bool {
+    // Other elevators should not move
+    if moving(otherElevators) == 1 {
+      return false;
+    }
+
+    // Other elevators should not have their cab status light activated.
+    foreach int e in otherElevators {
+      foreach int f in [0, 1, 2, 3] {
+        if statuslight([e], CAB, f) == 1 {
+          return false;
+        }
+      }
+    }
+
+    return true;
+  }, 0);
+  //Wait for order to process.
+  process_cab_order(elevator, desiredFloor);
+  close(check_other_elevs);
+  return 0;
+}
+
+test_order(0, 1);
+sleep(1000);
+test_order(1, 2);
+sleep(1000);
+test_order(2, 3);
+
+

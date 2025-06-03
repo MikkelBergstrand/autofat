@@ -1,0 +1,39 @@
+@ = 3;
+init_elevators([0, 1, 0]);
+
+
+
+int repeatCount = 0;
+int TARGET_FLOOR = 3;
+
+
+
+int[] aliveElevators = array_diff(@, [movingElevator]);
+
+// Check that the other elevators do not move.
+thread prevent_movement = ~assert(() bool {
+  return moving(aliveElevators) == 0;
+}, 0);
+
+sleep(1500);
+
+// Allow other elevators to move again, and kill the servicing elevator.
+close(prevent_movement);
+kill_elevator(movingElevator);
+
+
+//Now, check that an elevator moves to the new floor.
+int servicing_elevator = 0; // Store the elevator that serviced the order.
+await_or_exit(() bool {    
+  foreach int elevator in  aliveElevators {
+    if moving([elevator]) == 0 & floor([elevator]) == TARGET_FLOOR & door([elevator]) == 1 {
+      servicing_elevator = elevator;
+      return true;  
+    } 
+  }
+  return false;
+}, 20000);
+
+await_or_exit(() bool {
+  return moving([servicing_elevator]) == 0 & door([servicing_elevator]) == 0 & floor([servicing_elevator]) == TARGET_FLOOR;
+}, 10000);

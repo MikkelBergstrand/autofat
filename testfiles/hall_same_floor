@@ -1,0 +1,22 @@
+@ = 3;
+init_elevators([0, 0, 3]);
+
+sleep(1000);
+make_order(2, HALLDOWN, 3);
+
+// No elevator should move
+~assert(() bool {
+  return moving(@) == 0;
+}, 0);
+
+// Elevator 2, which is at the floor, should open.
+// Door should open
+await_or_exit(() bool {
+  return door([2]) == 1;
+}, 1000);
+
+// Door should close.
+await_or_exit(() bool {
+  return door([2]) == 0;
+}, 5000);
+

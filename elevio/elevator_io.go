@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-const _pollRate = 20 * time.Millisecond
+const _pollRate = 40 * time.Millisecond
 
 type ElevIO struct {
 	initialized bool

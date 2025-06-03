@@ -1,0 +1,3 @@
+@ = 3;
+set_packet_loss(@, 90);
+sleep(10000000);

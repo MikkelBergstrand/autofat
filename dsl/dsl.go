@@ -76,7 +76,8 @@ func Load(test_file string, config config.Config) (bool, error) {
 	start = time.Now()
 	primary := runtime.NewInstance(entryPoint, nil)
 	done := make(chan bool)
-	go primary.Run(done)
+	kill := make(chan bool)
+	go primary.Run(kill, done)
 	output := <-done
 	fmt.Println("Program finished in", time.Since(start))
 

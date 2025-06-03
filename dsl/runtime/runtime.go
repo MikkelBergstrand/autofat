@@ -2,12 +2,10 @@ package runtime
 
 import (
 	"autofat/config"
-	"autofat/dsl/color"
 	"autofat/dsl/structure"
 	"autofat/dsl/variables"
 	"autofat/statemanager"
 	"log"
-	"reflect"
 )
 
 const RT_EXIT = 1000000
@@ -38,6 +36,7 @@ type thread struct {
 	Programcounter int
 	CallStack      structure.Stack[ActivationRegister]
 	Children       []*thread
+	Listener       statemanager.StateChannel
 }
 
 type ActivationRegister struct {
@@ -149,10 +148,22 @@ func (runtime *Runtime) LoadInstructions(instructions []InstructionLabelPair) (s
 	return start, end
 }
 
-func (runtime *thread) Run(done chan bool) {
+func (runtime *thread) Run(kill chan bool, done chan bool) {
+	killFlag := false
+	go func() {
+		for {
+			<-kill
+			killFlag = true
+			return
+		}
+	}()
+
 	for runtime.Programcounter != RT_EXIT+1 {
-		color.Println(color.Yellow, &runtime, reflect.TypeOf(runtime.Runtime.Instructions[runtime.Programcounter]), "PC = ", runtime.Programcounter)
+		//color.Println(color.Yellow, &runtime, reflect.TypeOf(runtime.Runtime.Instructions[runtime.Programcounter]), "PC = ", runtime.Programcounter)
 		runtime.Runtime.Instructions[runtime.Programcounter].Execute(runtime)
+		if killFlag {
+			runtime.close()
+		}
 		runtime.Programcounter += 1
 	}
 
@@ -219,12 +230,21 @@ func (s *thread) set(symbol variables.Symbol, value any) {
 	//fmt.Printf("Set %v value=%v addr=%d rt=%p\n", symbol, value, addr, rt)
 }
 
-func (rt *thread) exit(value bool) {
+// Terminate the thread.
+func (rt *thread) close() {
 	rt.Programcounter = RT_EXIT
+	if rt.Listener != nil {
+		rt.removeListener()
+	}
+}
+
+// Terminate the entire program.
+func (rt *thread) exit(value bool) {
 	rt.Retval = value
+	rt.close()
 
 	//Propagate exit.
-	if rt.Parent != nil && rt.Programcounter < RT_EXIT {
+	if rt.Parent != nil && rt.Parent.Programcounter < RT_EXIT {
 		rt.Parent.exit(value)
 	}
 
@@ -234,4 +254,16 @@ func (rt *thread) exit(value bool) {
 		}
 	}
 	clear(rt.Children)
+}
+
+func (rt *thread) newListener() statemanager.StateChannel {
+	if rt.Listener == nil {
+		rt.Listener = statemanager.RegisterStateChannel()
+	}
+	return rt.Listener
+}
+
+func (rt *thread) removeListener() {
+	statemanager.UnregisterStateChannel(rt.Listener)
+	rt.Listener = nil
 }

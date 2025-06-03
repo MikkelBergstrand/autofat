@@ -82,6 +82,9 @@ func makeClosure(col item_collection, cfg CFG, first FirstSet) item_collection {
 			if C != tokens.ItemError {
 				for index := range cfg.GetRuleIndexesForA(C) {
 					for _, firstItem := range first[lookahead].List() {
+						if firstItem == tokens.ItemEpsilon {
+							continue
+						}
 						new_obj := lr_item{
 							production_id: index,
 							dot_pos:       0,
@@ -325,18 +328,14 @@ func (parser *LRParser) Parse(words <-chan tokens.Token, cfg CFG, grammar tokens
 			rule := cfg.RuleByIndex(action.Value)
 
 			actionitems := make([]any, len(rule.B))
-
-			lastitem := stack.Pop()
-			actionitems[len(rule.B)-1] = lastitem.value
-
-			for i := len(rule.B) - 2; i >= 0; i-- {
+			for i := len(rule.B) - 1; i >= 0; i-- {
 				pop := stack.Pop()
 				actionitems[i] = pop.value
 			}
 
 			value, err := DoActions(action.Value, actionitems, storage, rt)
 			if err != nil {
-				return 0, fmt.Errorf("parser error on line %d, col %d:\n%s", lastitem.line, lastitem.col, err.Error())
+				return 0, fmt.Errorf("parser error on line %d, col %d:\n%s", word.Line, word.Col, err.Error())
 			}
 
 			state = stack.Peek()
@@ -344,7 +343,7 @@ func (parser *LRParser) Parse(words <-chan tokens.Token, cfg CFG, grammar tokens
 			if _goto < 0 {
 				return 0, errors.New("bad goto")
 			}
-			stack.Push(stack_state{rule.A, _goto, value, lastitem.line, lastitem.col})
+			stack.Push(stack_state{rule.A, _goto, value, word.Line, word.Col})
 		case ACTION_SHIFT:
 			stack.Push(stack_state{word.Symbol, action.Value, word.Lexeme, word.Line, word.Col})
 			word = <-words

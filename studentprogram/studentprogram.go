@@ -27,7 +27,6 @@ type StudentProgram struct {
 	Chan_Crash chan bool
 	ProgramDir string
 	Executable string
-	Params     []string
 }
 
 var _studentPrograms map[int]StudentProgram
@@ -41,23 +40,19 @@ func InitalizeFromConfig(waitTime time.Duration, programDir string, config []con
 		log.Panic(err)
 	}
 
-	re := regexp.MustCompile("{PORT}")            //Replace PORT with actual port
-	re2 := regexp.MustCompile(`^([^\s]*?) (.*)$`) //Parse command as executable + parameters
+	re := regexp.MustCompile("{PORT}") //Replace PORT with actual port
 	commands := strings.Split(string(data), "\n")
 	for i := 0; i < nElevators; i++ {
 		cmdStr := re.ReplaceAllString(commands[i], strconv.Itoa((int)(config[i].UserAddrPort.Port())))
-		matches := re2.FindStringSubmatch(cmdStr)
 
 		prog := StudentProgram{
 			Status:     RUNNING,
-			Executable: matches[1],
+			Executable: cmdStr,
 			ProgramDir: programDir,
-			Params:     strings.Split(matches[2], " "),
 			Chan_Kill:  make(chan bool),
 			Chan_Crash: make(chan bool),
 		}
 		_studentPrograms[i] = prog
-
 		go runprocess(i)
 		time.Sleep(waitTime)
 	}
@@ -66,7 +61,7 @@ func InitalizeFromConfig(waitTime time.Duration, programDir string, config []con
 func runprocess(elevatorId int) {
 	prog := _studentPrograms[elevatorId]
 	//Launching with context so that we abort when the program aborts.
-	cmd := network.CommandInNamespace(elevatorId, prog.Executable, prog.Params)
+	cmd := network.CommandInNamespace(elevatorId, prog.Executable)
 
 	//This *should* according to some online guides make it so that child processes are killed
 	//with the parent, but it does not seem like os/exec respects this....

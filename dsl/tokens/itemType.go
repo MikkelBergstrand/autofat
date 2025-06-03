@@ -106,6 +106,7 @@ const (
 	NTEndLoopScope
 	NTForPrelude
 	NTForeachHeader
+	NTReturnType
 	NONTERMINALS_LENGTH
 )
 
@@ -138,8 +139,8 @@ func (grammar *Grammar) MapToArrayindex(item Symbol) int {
 		return len(grammar.Terminals)
 	}
 
-	log.Fatalf("Attempted to store %s in an array!", item.String())
-	panic("See log")
+	log.Panicf("Attempted to store %s in an array!", item.String())
+	return 0
 }
 
 func (grammar *Grammar) NewCategoryID(item Symbol) Symbol {

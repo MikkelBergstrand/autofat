@@ -1,0 +1,35 @@
+func process_cab_order(int elevator, int floorTarget) int {
+  // Wait for the elevator to arrive at floor.
+  await_or_exit(() bool {
+    return (floor([elevator]) == floorTarget) & (moving([elevator]) == 0);  
+  }, 20000);
+
+  // Wait for the door to open at floor.
+  await_or_exit(() bool {
+    return (floor([elevator]) == floorTarget) & (door([elevator]) == 1);
+  }, 5000);
+
+  // Wait for the door to close at floor.
+  await_or_exit(() bool {
+    return door([elevator]) == 0 & floor([elevator]) == floorTarget;
+  }, 5000);
+  return 0;
+}
+
+@ = 3;
+init_elevators([0, 0, 0]);
+
+set_packet_loss(50);
+
+make_order(0, CAB, 2);
+make_order(0, CAB, 3);
+
+sleep(500);
+kill_elevator(0);
+sleep(3000);
+restart_elevator(0);
+
+sync([
+  ~process_cab_order(0, 2),
+  ~process_cab_order(0, 3)
+]);

@@ -1,7 +1,6 @@
 package variables
 
 import (
-	"autofat/statemanager"
 	"log"
 	"time"
 )
@@ -66,16 +65,15 @@ type SymbolTableEntry struct {
 }
 
 type AwaitVal struct {
-	StateChan statemanager.StateChannel
-	Timeout   *time.Timer
+	Timeout *time.Timer
 }
 
 type AssertVal struct {
-	StateChan     statemanager.StateChannel
 	DeadzoneTimer *time.Timer
 	TimerActive   bool
 }
 
 type Thread struct {
 	Done chan bool
+	Kill chan bool
 }
