@@ -1,7 +1,6 @@
 package tmux
 
 import (
-	"fmt"
 	"log"
 	"os/exec"
 	"strconv"
@@ -30,13 +29,11 @@ func LaunchInPane(ex *exec.Cmd, window string, paneId int) {
 func Launch() {
 	err := exec.Command("tmux", "a", "-t", "autofat").Run()
 	if err != nil {
-		fmt.Println("tmux session not found, creating new...")
 		exec.Command("tmux", "new-session", "-d", "-s", "autofat").Run()
 	}
 
 	err = exec.Command("tmux", "select-window", "-t", WINDOW_ELEVATORS).Run()
 	if err != nil {
-		fmt.Println("tmux window not found, creating new...")
 		exec.Command("tmux", "rename-window", WINDOW_ELEVATORS).Run()
 	} else {
 		//Kill leftover panes, if any.

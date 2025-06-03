@@ -2,6 +2,7 @@ package statemanager
 
 import (
 	"autofat/elevio"
+	"autofat/logger"
 	"autofat/simulator"
 	"autofat/studentprogram"
 	"fmt"
@@ -35,7 +36,7 @@ var _stateChannels []StateChannel
 // On the arrival of a new trigger, check the loaded events and see if
 // any of them are listening on the current trigger. If yes,
 func pollEvents(triggerType trigger, triggerParams interface{}) {
-	fmt.Println("Polling events of type", triggerType, "params: ", triggerParams)
+	logger.Log(logger.EVENT, "Polling events of type", triggerType, "params: ", triggerParams)
 
 	for _, stateChan := range _stateChannels {
 		stateChan <- _elevatorStates
@@ -138,7 +139,7 @@ func listenToElevators(elevatorId int, simulatedElevator *simulator.Simulator, s
 			_elevatorStates[elevatorId].DoorOpen = door_state
 			_pollAgain <- triggerMessage{
 				Type:   TRIGGER_DOOR,
-				Params: fmt.Sprintf("Elevator=%d Door=%b", elevatorId, door_state),
+				Params: fmt.Sprintf("Elevator=%d Door=%t", elevatorId, door_state),
 			}
 		case order_light := <-simulatedElevator.Chan_OrderLights:
 			switch order_light.Button {

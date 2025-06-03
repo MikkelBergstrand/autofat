@@ -3,6 +3,7 @@ package simulator
 import (
 	"autofat/config"
 	"autofat/elevio"
+	"autofat/logger"
 	"autofat/network"
 	"autofat/tmux"
 	"fmt"
@@ -73,7 +74,7 @@ func Get(id int) *Simulator {
 func Run(id int) {
 	elevator := &_simulators[id]
 	elevator.io = &elevio.ElevIO{}
-	fmt.Printf("Launching simulator process, port=%d, externalPort=%d\n", elevator.Config.UserAddrPort.Port(), elevator.Config.EvaulationAddrPort.Port())
+	logger.Logf(logger.NETWORK, "Launching simulator process, port=%d, externalPort=%d\n", elevator.Config.UserAddrPort.Port(), elevator.Config.EvaulationAddrPort.Port())
 
 	args := fmt.Sprintf("--port %s --externalPort %s --startFloor %s",
 		strconv.Itoa(int(elevator.Config.UserAddrPort.Port())),

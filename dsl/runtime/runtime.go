@@ -6,6 +6,7 @@ import (
 	"autofat/dsl/variables"
 	"autofat/statemanager"
 	"log"
+	"time"
 )
 
 const RT_EXIT = 1000000
@@ -26,6 +27,7 @@ type Runtime struct {
 	Instructions []Instruction
 	Labels       map[string]int
 	Config       config.Config
+	startTime    time.Time
 }
 
 type thread struct {
@@ -48,8 +50,9 @@ type ActivationRegister struct {
 
 func New(config config.Config) *Runtime {
 	runTime := Runtime{
-		Labels: map[string]int{},
-		Config: config,
+		Labels:    map[string]int{},
+		Config:    config,
+		startTime: time.Now(),
 	}
 
 	return &runTime

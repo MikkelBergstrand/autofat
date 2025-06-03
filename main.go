@@ -2,6 +2,8 @@ package main
 
 import (
 	"autofat/config"
+	"autofat/dsl/color"
+	"autofat/logger"
 	"autofat/network"
 	"autofat/procmanager"
 	"autofat/simulator"
@@ -9,7 +11,6 @@ import (
 	"autofat/studentprogram"
 	"autofat/tests"
 	"autofat/tmux"
-	"fmt"
 	"os"
 	"os/signal"
 )
@@ -40,6 +41,7 @@ func main() {
 
 	simulator.SetExecutablePath(cfg.SimElevatorServerPath)
 	network.InitNamespaceConfig(cfg)
+	logger.Init(cfg)
 
 	procmanager.Init()
 	initInterruptHandler()
@@ -59,11 +61,14 @@ func main() {
 }
 
 func runTest(test *tests.Test) {
-	fmt.Println("Beginning test", test.Name)
 	tmux.Launch()
 
 	eval := test.Run(cfg)
-	fmt.Printf("Value of test %s was %t\n", test.Name, eval)
+	if eval {
+		color.Println(color.Green, test.Name, "succeeded.")
+	} else {
+		color.Println(color.Red, test.Name, "failed.")
+	}
 
 	simulator.TerminateAll()
 	statemanager.Kill()

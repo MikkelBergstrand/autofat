@@ -136,7 +136,6 @@ func exit(compiler *storage.Compiler, params params) {
 }
 
 func statuslight(compiler *storage.Compiler, params params) {
-
 	elevs := params["i"]
 	floor := params["floor"]
 	ordertype := params["ordertype"]
@@ -238,6 +237,20 @@ func restart_elevator(compiler *storage.Compiler, params params) {
 		Elevator: params["elevator"],
 	})
 	compiler.LoadInstruction(&runtime.InstrExitFunction{})
+}
+
+func set_engine_state(compiler *storage.Compiler, params params) {
+	compiler.LoadInstruction(&runtime.InstrSetEngineStatus{
+		Elevator: params["elevator"],
+		Status:   params["engine_state"],
+	})
+	compiler.LoadInstruction(&runtime.InstrExitFunction{})
+}
+
+func time_now(compiler *storage.Compiler, params params) {
+	result := compiler.NewLiteral(variables.GetBaseTypeDef(variables.INT))
+	compiler.LoadInstruction(&runtime.InstrFetchTime{Result: result})
+	compiler.LoadInstruction(&runtime.InstrExitFunction{RetVal: result})
 }
 
 func set_packet_loss(compiler *storage.Compiler, params params) {
@@ -499,6 +512,27 @@ func generateGlobalFunctions(rt *runtime.Runtime, storage *storage.Compiler) {
 		},
 		ReturnType: &variables.TypeDefinition{BaseType: variables.NONE},
 	}, restart_elevator)
+
+	defineFunction(rt, storage, "set_engine_state", variables.TypeDefinition{
+		BaseType: variables.FUNC,
+		ArgumentList: variables.ArgumentList{
+			{
+				Identifier: "elevator",
+				Definition: variables.GetBaseTypeDef(variables.INT),
+			},
+			{
+				Identifier: "engine_state",
+				Definition: variables.GetBaseTypeDef(variables.BOOL),
+			},
+		},
+		ReturnType: &variables.TypeDefinition{BaseType: variables.NONE},
+	}, set_engine_state)
+
+	defineFunction(rt, storage, "now", variables.TypeDefinition{
+		BaseType:     variables.FUNC,
+		ArgumentList: variables.ArgumentList{},
+		ReturnType:   &variables.TypeDefinition{BaseType: variables.INT},
+	}, time_now)
 
 	defineFunction(rt, storage, "set_packet_loss", variables.TypeDefinition{
 		BaseType: variables.FUNC,

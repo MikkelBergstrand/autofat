@@ -74,7 +74,7 @@ func process_order(int[] elevators, int floorTarget) int {
 // Returns the ID of the (first) elevator that starts moving.
 // Elevators must be stationary before making a hall order
 // in order to be able to evaluate the system properly.
-func make_hall_order(int[] allElevators, int elevator, int floorTarget) {
+func make_hall_order(int[] allElevators, int elevator, int floorTarget) int {
   echo(floorTarget);
   await_or_exit(() bool {
     return moving(allElevators) == 0 & door(allElevators) == 0;

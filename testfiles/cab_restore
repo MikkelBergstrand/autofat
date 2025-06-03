@@ -19,8 +19,6 @@ func process_cab_order(int elevator, int floorTarget) int {
 @ = 3;
 init_elevators([0, 0, 0]);
 
-set_packet_loss(50);
-
 make_order(0, CAB, 2);
 make_order(0, CAB, 3);
 

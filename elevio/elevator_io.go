@@ -31,7 +31,6 @@ func (io *ElevIO) Init(addr string, numFloors int, killChan <-chan bool) {
 	}
 	io.initialized = true
 	io.killChan = killChan
-	fmt.Println("io initialized for addr", addr)
 }
 
 func (io *ElevIO) Close() {

@@ -7,7 +7,7 @@ import (
 	"autofat/dsl/scanner"
 	"autofat/dsl/storage"
 	"autofat/dsl/tokens"
-	"fmt"
+	"autofat/logger"
 	"log"
 	"os"
 	"time"
@@ -44,14 +44,14 @@ func Load(test_file string, config config.Config) (bool, error) {
 		}
 	}
 
-	fmt.Println("Scanned in ", time.Since(start))
+	logger.Log(logger.PERF, "Scanned in ", time.Since(start))
 
 	grammar := tokens.NewGrammar(tokens.NTGoal)
 	cfg := parser.CreateCFG()
 
 	start = time.Now()
 	parser := parser.CreateLRParser(grammar, cfg, parser.First(cfg, grammar), config.CompileParser)
-	fmt.Println("Created parse tables in ", time.Since(start))
+	logger.Log(logger.PERF, "Created parse tables in ", time.Since(start))
 
 	words := make(chan tokens.Token)
 	go func() {
@@ -71,7 +71,7 @@ func Load(test_file string, config config.Config) (bool, error) {
 		log.Fatal(err)
 	}
 
-	fmt.Println("Parsed in ", time.Since(start))
+	logger.Log(logger.PERF, "Parsed in ", time.Since(start))
 
 	start = time.Now()
 	primary := runtime.NewInstance(entryPoint, nil)
@@ -79,7 +79,7 @@ func Load(test_file string, config config.Config) (bool, error) {
 	kill := make(chan bool)
 	go primary.Run(kill, done)
 	output := <-done
-	fmt.Println("Program finished in", time.Since(start))
+	logger.Log(logger.PERF, "Program finished in", time.Since(start))
 
 	return output, nil
 }

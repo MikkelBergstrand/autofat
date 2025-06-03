@@ -408,3 +408,11 @@ func (instr *InstructionClose) Execute(rt *thread) {
 	thread := rt.get(instr.Thread).(variables.Thread)
 	thread.Kill <- true
 }
+
+type InstrFetchTime struct {
+	Result variables.Symbol
+}
+
+func (instr *InstrFetchTime) Execute(rt *thread) {
+	rt.set(instr.Result, int(time.Since(rt.Runtime.startTime).Milliseconds()))
+}

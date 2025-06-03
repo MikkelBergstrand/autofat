@@ -2,6 +2,7 @@ package network
 
 import (
 	"autofat/config"
+	"autofat/logger"
 	"fmt"
 	"os/exec"
 	"strconv"
@@ -29,14 +30,14 @@ func Init(dir string, cfg config.Config) {
 }
 
 func clearIPTables(elevator int) {
-	fmt.Println("Clearing iptables rules")
+	logger.Log(logger.NETWORK, "Clearing iptables rules")
 	RunOrPanicInNamespace(elevator, "sudo iptables -P INPUT ACCEPT")
 	RunOrPanicInNamespace(elevator, "sudo iptables -P FORWARD ACCEPT")
 	RunOrPanicInNamespace(elevator, "sudo iptables -P OUTPUT ACCEPT")
 	RunOrPanicInNamespace(elevator, "sudo iptables -t nat -F")
 	RunOrPanicInNamespace(elevator, "sudo iptables -t mangle -F")
-	RunOrPanicInNamespace(elevator, "sudo iptables -F") 
-	RunOrPanicInNamespace(elevator, "sudo iptables -X") 
+	RunOrPanicInNamespace(elevator, "sudo iptables -F")
+	RunOrPanicInNamespace(elevator, "sudo iptables -X")
 }
 
 func SetPacketLoss(elevator int, percentage int) {
@@ -56,7 +57,6 @@ func SetPacketLoss(elevator int, percentage int) {
 		strconv.Itoa(int(_cfg.Elevators[elevator].EvaulationAddrPort.Port()))))
 	RunOrPanicInNamespace(elevator, "sudo iptables -A INPUT -i lo -j ACCEPT")
 	RunOrPanicInNamespace(elevator,
-
 		fmt.Sprintf("sudo iptables -A INPUT -m statistic --mode random --probability %s -j DROP", percentage_str))
 }
 

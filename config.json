@@ -2,24 +2,32 @@
   "compile_parser":  false,
   "student_program_wait_time": 1,
   "sim_elevator_server_path": "./SimElevatorServer",
+  "log_student_application_output": false,
   "elevators":[
     {
         "network_namespace": "container0",
-        "user_addr": "10.0.0.1:12345",
+        "user_addr": "10.0.0.1:15657",
         "evaluation_addr": "10.0.0.1:12346",
         "iface": "veth-0"
     },
     {
         "network_namespace": "container1",
-        "user_addr": "10.0.0.2:12345",
+        "user_addr": "10.0.0.2:15657",
         "evaluation_addr": "10.0.0.2:12346",
         "iface": "veth-1"
     },
     {
         "network_namespace": "container2",
-        "user_addr": "10.0.0.3:12345",
+        "user_addr": "10.0.0.3:15657",
         "evaluation_addr": "10.0.0.3:12346",
         "iface": "veth-2"
     }
-  ]
+  ],
+  "logs": {
+    "performance": false,
+    "events": false,
+    "network": false,
+    "dsl_output": true
+  }
+
 }

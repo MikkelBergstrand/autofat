@@ -1,9 +1,0 @@
-
-int[] arr = [1, 2, 3, 4];
-int[] second = [];
-
-foreach int v in arr {
-  second = append(second, v+1);
-}
-
-echo(second);

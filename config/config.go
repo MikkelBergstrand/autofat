@@ -16,13 +16,22 @@ type ElevatorConfig struct {
 	NetworkInterface   string         `json:"iface"`
 }
 
+type LogConfig struct {
+	Performance bool `json:"performance"`
+	Events      bool `json:"events"`
+	Network     bool `json:"network"`
+	DSLOutput   bool `json:"dsl_output"`
+}
+
 type Config struct {
-	StudentProgramDir      string            `json:"student_program"`
-	TestFile               string            `json:"test"`
-	CompileParser          bool              `json:"compile_parser"`
-	StudentProgramWaitTime int               `json:"student_program_wait_time"`
-	Elevators              [3]ElevatorConfig `json:"elevators"`
-	SimElevatorServerPath  string            `json:"sim_elevator_server_path"`
+	StudentProgramDir          string            `json:"student_program"`
+	TestFile                   string            `json:"test"`
+	CompileParser              bool              `json:"compile_parser"`
+	StudentProgramWaitTime     int               `json:"student_program_wait_time"`
+	Elevators                  [3]ElevatorConfig `json:"elevators"`
+	SimElevatorServerPath      string            `json:"sim_elevator_server_path"`
+	LogStudentApplictionOutput bool              `json:"log_student_application_output"`
+	Logging                    LogConfig         `json:"logs"`
 }
 
 func elevatorFlags(config *Config) {
@@ -54,6 +63,7 @@ func LoadFromFlags() Config {
 	flag.StringVar(&config.StudentProgramDir, "studentdir", config.StudentProgramDir, "sets directory of student program (relevant to the executing directory)")
 	flag.StringVar(&config.SimElevatorServerPath, "simserverpath", config.SimElevatorServerPath, "path of the simulator executable.")
 	flag.BoolVar(&config.CompileParser, "compile-parser", config.CompileParser, "Recreates the LR(1)-parser tables regardless of cache status.")
+	flag.BoolVar(&config.LogStudentApplictionOutput, "log-stud-output", config.LogStudentApplictionOutput, "Logs the output of the student programs to logs/ directory")
 
 	var wait_time_seconds int
 	flag.IntVar(&wait_time_seconds, "studwaittime", config.StudentProgramWaitTime, "How many seconds to wait between launching student programs.")

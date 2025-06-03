@@ -1,0 +1,55 @@
+@ = 3;
+init_elevators([0, 0, 0]);
+sleep(3000);
+
+// Door watchdog: check if a door is open for the wrong duration.
+func door_tester(int elevator) {
+  for {
+    // Wait for door to open
+    await(() bool {
+      return door([elevator]) == 1;   
+    }, 100000);
+
+    int start = now();
+    
+    await_or_exit(() bool {
+      return door([elevator]) == 0;
+    }, 10000);
+
+    int diff = now() - start;
+
+    if (diff < 2500 | diff > 3500) {
+      exit(false);
+    }
+  }
+}
+
+
+foreach int elev in @ {
+  //Check that doors don't open in transit.
+  ~assert(() bool {
+    return moving([elev]) == 0 | (moving([elev]) == 1 & door([elev]) == 0);
+  }, 250);
+
+  ~door_tester(elev);  
+}
+
+
+make_order(0, CAB, 2);
+make_order(1, CAB, 2);
+make_order(2, CAB, 2);
+
+make_order(0, CAB, 3);
+make_order(1, CAB, 3);
+make_order(2, CAB, 3);
+
+
+sleep(1000);
+
+sync([
+  ~process_order([0], 3),
+  ~process_order([1], 3),
+  ~process_order([2], 3)
+]);
+
+sleep(1000);

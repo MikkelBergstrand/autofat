@@ -34,6 +34,7 @@ func (instr *InstrInitializeElevators) Execute(rt *thread) {
 
 	time.Sleep(500 * time.Millisecond)
 	studentprogram.InitalizeFromConfig(
+		rt.Runtime.Config,
 		time.Duration(rt.Runtime.Config.StudentProgramWaitTime)*time.Second,
 		rt.Runtime.Config.StudentProgramDir,
 		rt.Runtime.Config.GetAllElevatorConfigs(),
@@ -144,6 +145,15 @@ func (instr *InstrMakeOrder) Execute(rt *thread) {
 	order_type := rt.get(instr.OrderType).(elevio.ButtonType)
 
 	simulator.MakeOrder(elev, order_type, floor)
+}
+
+type InstrSetEngineStatus struct {
+	Elevator variables.Symbol
+	Status   variables.Symbol
+}
+
+func (instr *InstrSetEngineStatus) Execute(rt *thread) {
+	simulator.SetEngineFailureState(rt.getInt(instr.Elevator), !rt.getBool(instr.Status))
 }
 
 type InstrKillApplication struct {

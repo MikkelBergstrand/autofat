@@ -4,6 +4,7 @@ import (
 	"autofat/config"
 	"autofat/network"
 	"autofat/procmanager"
+	"fmt"
 	"log"
 	"os"
 	"regexp"
@@ -31,9 +32,14 @@ type StudentProgram struct {
 
 var _studentPrograms map[int]StudentProgram
 
+var _config config.Config
+var _launchTime time.Time
+
 const CONFIG_FILENAME = "init.cfg"
 
-func InitalizeFromConfig(waitTime time.Duration, programDir string, config []config.ElevatorConfig, nElevators int) {
+func InitalizeFromConfig(cfg config.Config, waitTime time.Duration, programDir string, config []config.ElevatorConfig, nElevators int) {
+	_config = cfg
+	_launchTime = time.Now()
 	_studentPrograms = make(map[int]StudentProgram)
 	data, err := os.ReadFile(programDir + "/" + CONFIG_FILENAME)
 	if err != nil {
@@ -71,6 +77,17 @@ func runprocess(elevatorId int) {
 	}
 
 	cmd.Dir = prog.ProgramDir
+
+	if _config.LogStudentApplictionOutput {
+		fileName := fmt.Sprintf("logs/%d%d%d%d%d%d_%d",
+			_launchTime.Year(), _launchTime.Month(), _launchTime.Day(), _launchTime.Hour(), _launchTime.Minute(), _launchTime.Second(), elevatorId)
+		f, err := os.OpenFile(fileName, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			panic(err)
+		}
+		cmd.Stdout = f
+	}
+
 	err := cmd.Start()
 	if err != nil {
 		log.Panic("Could not launch user process: ", err)

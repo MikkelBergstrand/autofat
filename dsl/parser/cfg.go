@@ -253,7 +253,7 @@ func CreateCFG() CFG {
 	//80 - for loop
 	cfg.addRule(tokens.NTStatement, cfg_alternative{tokens.NTForHeader, tokens.ItemScopeOpen, tokens.NTStatementList, tokens.NTEndLoopScope})
 	//81 - for header: no statement
-	cfg.addRule(tokens.NTForHeader, cfg_alternative{tokens.ItemFor})
+	cfg.addRule(tokens.NTForHeader, cfg_alternative{tokens.NTForPrelude})
 	//82 - for header: boolean statement
 	cfg.addRule(tokens.NTForHeader, cfg_alternative{tokens.NTForPrelude, tokens.NTExpr})
 	//83 - End loop scope
@@ -275,7 +275,6 @@ func CreateCFG() CFG {
 		{}})                // 91 - Return type - no return type
 	// 92 - Allow empty statementlist
 	cfg.addRule(tokens.NTStatementList, cfg_alternative{})
-	fmt.Println("Num rules: ", len(cfg._array))
 	cfg.compile()
 
 	return cfg
